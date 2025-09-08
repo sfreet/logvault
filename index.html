@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logvault Alarms</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        header {
+            background-color: #fff;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #ddd;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        main {
+            padding: 2rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        #loading {
+            text-align: center;
+            padding: 2rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <header>Logvault Alarms</header>
+
+    <main>
+        <div id="alarms-container">
+            <table id="alarms-table">
+                <thead>
+                    <tr>
+                        <th>Key (IP/Host)</th>
+                        <th>Alarm Message</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="alarms-tbody">
+                    <!-- Alarms will be rendered here -->
+                </tbody>
+            </table>
+            <p id="loading">Loading alarms...</p>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tbody = document.getElementById('alarms-tbody');
+            const loading = document.getElementById('loading');
+
+            const fetchAlarms = async () => {
+                try {
+                    const response = await fetch('/api/alarms');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const alarms = await response.json();
+                    renderAlarms(alarms);
+                } catch (error) {
+                    loading.textContent = 'Failed to load alarms.';
+                    console.error('Fetch error:', error);
+                }
+            };
+
+            const renderAlarms = (alarms) => {
+                tbody.innerHTML = ''; // Clear existing rows
+                if (Object.keys(alarms).length === 0) {
+                    loading.textContent = 'No active alarms found.';
+                } else {
+                    loading.style.display = 'none';
+                }
+
+                for (const key in alarms) {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${escapeHtml(key)}</td>
+                        <td>${escapeHtml(alarms[key])}</td>
+                        <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
+                    `;
+                }
+            };
+
+            const deleteAlarm = async (key) => {
+                if (!confirm(`Are you sure you want to delete the alarm for ${key}?`)) {
+                    return;
+                }
+                try {
+                    const response = await fetch(`/api/alarms/${key}`, {
+                        method: 'DELETE',
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    fetchAlarms(); // Refresh the table
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    alert('Failed to delete alarm.');
+                }
+            };
+
+            tbody.addEventListener('click', (event) => {
+                if (event.target.classList.contains('delete-btn')) {
+                    const key = event.target.dataset.key;
+                    deleteAlarm(key);
+                }
+            });
+
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            fetchAlarms();
+            // Refresh alarms every 5 seconds
+            setInterval(fetchAlarms, 5000);
+        });
+    </script>
+
+</body>
+</html>
