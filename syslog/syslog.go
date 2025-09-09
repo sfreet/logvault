@@ -1,21 +1,20 @@
 package syslog
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strings"
 
-	"github.com/go-redis/redis/v8"
 	"gopkg.in/mcuadros/go-syslog.v2"
 
 	"logvault/config"
+	"logvault/redis"
 )
 
 const alarmPrefix = "alarm:"
 
 // StartServer initializes and starts the syslog server
-func StartServer(rdb *redis.Client, appConfig config.Config) *syslog.Server {
+func StartServer(rdb *redis.RedisClient, appConfig config.Config) *syslog.Server {
 	channel := make(syslog.LogPartsChannel)
 	handler := syslog.NewChannelHandler(channel)
 
@@ -36,8 +35,7 @@ func StartServer(rdb *redis.Client, appConfig config.Config) *syslog.Server {
 	return server
 }
 
-func processLogs(rdb *redis.Client, channel syslog.LogPartsChannel) {
-	ctx := context.Background()
+func processLogs(rdb *redis.RedisClient, channel syslog.LogPartsChannel) {
 	for logParts := range channel {
 		tag, _ := logParts["app_name"].(string)
 		message, _ := logParts["message"].(string)
@@ -53,13 +51,13 @@ func processLogs(rdb *redis.Client, channel syslog.LogPartsChannel) {
 
 		switch strings.ToUpper(tag) {
 		case "ALARM":
-			if err := rdb.Set(ctx, key, message, 0).Err(); err != nil {
+			if err := rdb.Set(key, message, 0); err != nil {
 				log.Printf("Failed to SET key %s: %v", key, err)
 			} else {
 				log.Printf("ALARM: Set key %s", key)
 			}
 		case "CLEAR":
-			if err := rdb.Del(ctx, key).Err(); err != nil {
+			if err := rdb.Del(key); err != nil {
 				log.Printf("Failed to DEL key %s: %v", key, err)
 			} else {
 				log.Printf("CLEAR: Deleted key %s", key)

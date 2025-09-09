@@ -25,7 +25,7 @@ func main() {
 	}
 
 	// Init Redis
-	rdb, err := redis.InitRedis(appConfig)
+	rdb, err := redis.NewRedisClient(appConfig.Redis.Address, appConfig.Redis.Password, appConfig.Redis.DB)
 	if err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}

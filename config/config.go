@@ -22,6 +22,9 @@ type Config struct {
 		Port   int    `mapstructure:"port"`
 		Secret string `mapstructure:"secret"`
 	} `mapstructure:"web"`
+	API struct {
+		BearerToken string `mapstructure:"bearer_token"`
+	} `mapstructure:"api"`
 }
 
 // LoadConfig reads configuration from config.yaml
@@ -40,6 +43,7 @@ func LoadConfig() (Config, error) {
 	viper.SetDefault("syslog.port", 514)
 	viper.SetDefault("syslog.host", "0.0.0.0")
 	viper.SetDefault("redis.address", "localhost:6379")
+	viper.SetDefault("api.bearer_token", "") // Default empty bearer token
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

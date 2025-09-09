@@ -16,3 +16,7 @@ redis:
 web:
   port: 8080
   secret: "your_secret_password" # Add a secret for web UI login
+
+# API settings
+api:
+  bearer_token: "your_bearer_token" # Choose a strong, unique token

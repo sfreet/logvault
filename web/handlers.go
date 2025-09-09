@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-redis/redis/v8"
+	"logvault/redis"
 )
 
 const alarmPrefix = "alarm:"
 
-func serveHome(rdb *redis.Client) http.HandlerFunc {
+func serveHome(rdb *redis.RedisClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -23,7 +23,7 @@ func serveHome(rdb *redis.Client) http.HandlerFunc {
 	}
 }
 
-func alarmsHandler(rdb *redis.Client) http.HandlerFunc {
+func alarmsHandler(rdb *redis.RedisClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -36,9 +36,9 @@ func alarmsHandler(rdb *redis.Client) http.HandlerFunc {
 	}
 }
 
-func getAlarms(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
+func getAlarms(w http.ResponseWriter, r *http.Request, rdb *redis.RedisClient) {
 	ctx := context.Background()
-	keys, err := rdb.Keys(ctx, alarmPrefix+"*").Result()
+	keys, err := rdb.GetKeysByPattern(ctx, alarmPrefix+"*")
 	if err != nil {
 		http.Error(w, "Failed to get keys from Redis", http.StatusInternalServerError)
 		return
@@ -50,26 +50,22 @@ func getAlarms(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
 		return
 	}
 
-	values, err := rdb.MGet(ctx, keys...).Result()
-	if err != nil {
-		http.Error(w, "Failed to get values from Redis", http.StatusInternalServerError)
-		return
-	}
-
 	alarms := make(map[string]string)
-	for i, key := range keys {
-		cleanKey := strings.TrimPrefix(key, alarmPrefix)
-		if values[i] != nil {
-			alarms[cleanKey] = values[i].(string)
+	for _, key := range keys {
+		val, err := rdb.Get(key)
+		if err != nil {
+			log.Printf("Failed to get value for key %s: %v", key, err)
+			continue
 		}
+		cleanKey := strings.TrimPrefix(key, alarmPrefix)
+		alarms[cleanKey] = val
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(alarms)
 }
 
-func deleteAlarm(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
-	ctx := context.Background()
+func deleteAlarm(w http.ResponseWriter, r *http.Request, rdb *redis.RedisClient) {
 	key := strings.TrimPrefix(r.URL.Path, "/api/alarms/")
 	if key == "" {
 		http.Error(w, "Key is missing", http.StatusBadRequest)
@@ -77,7 +73,7 @@ func deleteAlarm(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
 	}
 
 	fullKey := alarmPrefix + key
-	if err := rdb.Del(ctx, fullKey).Err(); err != nil {
+	if err := rdb.Del(fullKey); err != nil {
 		log.Printf("Failed to DEL key %s via API: %v", fullKey, err)
 		http.Error(w, "Failed to delete key from Redis", http.StatusInternalServerError)
 		return
@@ -85,4 +81,29 @@ func deleteAlarm(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
 
 	log.Printf("API: Deleted key %s", fullKey)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func getAllRedisDataHandler(rdb *redis.RedisClient) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.Background()
+		keys, err := rdb.GetAllKeys(ctx)
+		if err != nil {
+			http.Error(w, "Failed to get Redis keys: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		data := make(map[string]string)
+		for _, key := range keys {
+			val, err := rdb.Get(key)
+			if err != nil {
+				// Log the error but continue to get other keys
+				log.Printf("Failed to get value for key %s: %v", key, err)
+				continue
+			}
+			data[key] = val
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
+	}
 }

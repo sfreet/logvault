@@ -5,13 +5,12 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-redis/redis/v8"
-
 	"logvault/config"
+	"logvault/redis"
 )
 
 // StartServer initializes and starts the web server
-func StartServer(rdb *redis.Client, appConfig config.Config) {
+func StartServer(rdb *redis.RedisClient, appConfig config.Config) {
 	mux := http.NewServeMux()
 
 	// Public routes
@@ -22,7 +21,10 @@ func StartServer(rdb *redis.Client, appConfig config.Config) {
 		LoginHandler(w, r, appConfig)
 	})
 
-	// Protected routes
+	// API routes
+	mux.HandleFunc("/api/data", BearerAuthMiddleware(getAllRedisDataHandler(rdb), appConfig))
+
+	// Protected web UI routes
 	mux.HandleFunc("/logout", LogoutHandler) // Add logout handler
 	mux.HandleFunc("/", AuthMiddleware(serveHome(rdb)))
 	mux.HandleFunc("/api/alarms", AuthMiddleware(alarmsHandler(rdb)))

@@ -88,6 +88,30 @@ Once the application is running, open your web browser and navigate to:
 
 You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms. It auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
 
+### REST API for Redis Data
+
+Logvault exposes a REST API endpoint to retrieve all data stored in Redis. This API is secured using a Bearer token.
+
+**Endpoint:** `GET /api/data`
+
+**Authentication:**
+This API requires a Bearer token in the `Authorization` header.
+
+1.  **Configure your Bearer Token:**
+    Edit your `config.yaml` file and set a strong, unique `bearer_token` under the `api` section:
+    ```yaml
+    # API settings
+    api:
+      bearer_token: "your_chosen_bearer_token" # Choose a strong, unique token
+    ```
+
+2.  **Call the API:**
+    Once Logvault is running, you can call the API using `curl` (replace `your_chosen_bearer_token` with your actual token):
+    ```bash
+    curl -H "Authorization: Bearer your_chosen_bearer_token" http://localhost:8080/api/data
+    ```
+    The API will return a JSON object containing all key-value pairs currently stored in Redis.
+
 ## Configuration
 
 You can configure the application by editing the `config.yaml` file.
