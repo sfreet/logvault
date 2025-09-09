@@ -12,6 +12,8 @@ It's designed to be a lightweight solution for scenarios where you need to track
   - `CLEAR`: Deletes an alarm.
 - **Redis Backend**: Uses Redis to store the current state of active alarms.
 - **Real-time Web UI**: A clean web interface that automatically refreshes to show the current list of active alarms.
+- **Web UI Authentication**: Secure your web interface with a configurable secret password.
+- **Logout Functionality**: Allows users to securely log out of the web UI.
 - **Manual Deletion**: Allows manual deletion of alarms directly from the web UI.
 - **Configuration**: Easily configurable via a `config.yaml` file.
 
@@ -44,11 +46,13 @@ You need to have the following software installed:
 2.  **Configure the application:**
     Copy or rename `config.yaml.example` to `config.yaml` if you need to make changes. The default settings should work for a local setup.
 
-3.  **Build the application:**
-    This command compiles the source code and creates an executable file named `logvault`.
+3.  **Initialize Go Modules and Build the application:**
+    Ensure you are in the project root directory where `go.mod` is located.
     ```sh
+    go mod tidy
     make build
     ```
+    This command compiles the source code and creates an executable file named `logvault`.
 
 4.  **Run the application:**
     ```sh
@@ -82,7 +86,7 @@ Once the application is running, open your web browser and navigate to:
 
 **http://localhost:8080**
 
-The UI will display a list of all active alarms. It auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button.
+You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms. It auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
 
 ## Configuration
 
@@ -104,6 +108,7 @@ redis:
 # Web UI settings
 web:
   port: 8080
+  secret: "your_secret_password" # Add a secret for web UI login
 ```
 
 ## License
