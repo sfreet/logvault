@@ -112,6 +112,35 @@ This API requires a Bearer token in the `Authorization` header.
     ```
     The API will return a JSON object containing all key-value pairs currently stored in Redis.
 
+### External API Integration
+
+Logvault can be configured to call an external REST API when a syslog message with a specific tag is processed. This allows for event-driven integrations with other systems.
+
+**Configuration:**
+Edit your `config.yaml` file and configure the `external_api` section:
+
+```yaml
+# External API integration settings
+external_api:
+  enabled: false # Set to true to enable this feature
+  url: "http://example.com/api/event" # The URL of your external API endpoint
+  method: "POST" # HTTP method (e.g., GET, POST, PUT, DELETE)
+  bearer_token: "" # Optional: Bearer token for external API authentication
+  trigger_tag: "ALARM" # The syslog app_name (tag) that will trigger the API call
+```
+
+**How it works:**
+When Logvault processes a syslog message whose `app_name` matches the `trigger_tag` configured in `config.yaml`, it will make an HTTP request to the specified `url` with the configured `method`. The payload sent to the external API will be a JSON object containing the `key`, `message`, and `status` (ALARM/CLEAR) of the processed syslog event.
+
+**Example Payload:**
+```json
+{
+  "key": "alarm:192.168.1.100",
+  "message": "192.168.1.100 System is overheating",
+  "status": "ALARM"
+}
+```
+
 ## Configuration
 
 You can configure the application by editing the `config.yaml` file.

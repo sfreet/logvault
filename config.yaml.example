@@ -20,3 +20,11 @@ web:
 # API settings
 api:
   bearer_token: "your_bearer_token" # Choose a strong, unique token
+
+# External API integration settings
+external_api:
+  enabled: false
+  url: "http://example.com/api/event"
+  method: "POST"
+  bearer_token: "" # Optional: Bearer token for external API authentication
+  trigger_tag: "ALARM" # Syslog tag that triggers the external API call
