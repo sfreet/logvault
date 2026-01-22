@@ -36,8 +36,8 @@ func (r *RedisClient) Set(key string, value string, expiration time.Duration) er
 	return r.client.Set(r.client.Context(), key, value, expiration).Err()
 }
 
-func (r *RedisClient) Del(key string) error {
-	return r.client.Del(r.client.Context(), key).Err()
+func (r *RedisClient) Del(keys ...string) error {
+	return r.client.Del(r.client.Context(), keys...).Err()
 }
 
 func (r *RedisClient) HGetAll(key string) (map[string]string, error) {

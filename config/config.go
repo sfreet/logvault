@@ -30,7 +30,7 @@ type Config struct {
 		URL         string `mapstructure:"url"`
 		Method      string `mapstructure:"method"`
 		BearerToken string `mapstructure:"bearer_token"`
-		TriggerTag  string `mapstructure:"trigger_tag"`
+			TriggerTags  string `mapstructure:"trigger_tags"`
 	} `mapstructure:"external_api"`
 }
 

@@ -59,7 +59,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Confi
 			Value:    token,
 			Path:     "/",
 			Expires:  time.Now().Add(sessionExpiry),
-			HttpOnly: true, // Important for security
+			HttpOnly: true,  // Important for security
 			Secure:   false, // Set to true in production with HTTPS
 			SameSite: http.SameSiteLaxMode,
 		})

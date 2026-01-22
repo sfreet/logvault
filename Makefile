@@ -15,8 +15,8 @@ BINARY_NAME=logvault
 all: build
 
 # Build the application binary
-build: 
-	$(GOBUILD) -o $(BINARY_NAME) .
+build:
+	CGO_ENABLED=0 GOOS=linux $(GOBUILD) -a -ldflags="-s -w" -o $(BINARY_NAME) .
 
 # Run the application
 run: 

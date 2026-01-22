@@ -35,6 +35,24 @@
         th {
             background-color: #f8f9fa;
         }
+        td pre {
+            margin: 0;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 0.5rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        td code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+        }
+        .expandable {
+            cursor: pointer;
+        }
+        .details-row > td {
+            background-color: #fdfdfd;
+        }
         .delete-btn {
             background-color: #e74c3c;
             color: white;
@@ -56,13 +74,14 @@
 </head>
 <body>
 
-    <header>Logvault Alarms <button id="logoutBtn" style="float: right; padding: 8px 15px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Logout</button></header>
+    <header>Logvault Alarms <button id="refreshBtn" style="float: right; margin-left: 10px; padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh</button><button id="deleteAllBtn" style="float: right; margin-left: 10px; padding: 8px 15px; background-color: #c82333; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete All</button><button id="logoutBtn" style="float: right; padding: 8px 15px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Logout</button></header>
 
     <main>
         <div id="alarms-container">
             <table id="alarms-table">
                 <thead>
                     <tr>
+                        <th>TAG</th>
                         <th>Key (IP/Host)</th>
                         <th>Alarm Message</th>
                         <th>Action</th>
@@ -104,12 +123,42 @@
                 }
 
                 for (const key in alarms) {
-                    const row = tbody.insertRow();
-                    row.innerHTML = `
-                        <td>${escapeHtml(key)}</td>
-                        <td>${escapeHtml(alarms[key])}</td>
-                        <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
-                    `;
+                    const data = alarms[key];
+                    const tag = data.tag || 'N/A';
+
+                    // Check if the message is complex (from Insights) or simple
+                    const isComplex = data.hasOwnProperty('field_0');
+
+                    if (isComplex) {
+                        const summary = data.field_0 || JSON.stringify(data).substring(0, 100) + '...';
+
+                        // Main, visible row for complex data
+                        const mainRow = tbody.insertRow();
+                        mainRow.className = 'expandable';
+                        mainRow.innerHTML = `
+                            <td>${escapeHtml(tag)}</td>
+                            <td>${escapeHtml(key)}</td>
+                            <td>${escapeHtml(summary)}</td>
+                            <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
+                        `;
+
+                        // Hidden, collapsible row for full JSON
+                        const detailRow = tbody.insertRow();
+                        detailRow.className = 'details-row';
+                        detailRow.style.display = 'none';
+                        detailRow.innerHTML = `
+                            <td colspan="4"><pre><code>${escapeHtml(JSON.stringify(data, null, 2))}</code></pre></td>
+                        `;
+                    } else {
+                        // Simple message (e.g., ALARM, NONE)
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${escapeHtml(tag)}</td>
+                            <td>${escapeHtml(key)}</td>
+                            <td>${escapeHtml(String(data.message))}</td>
+                            <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
+                        `;
+                    }
                 }
             };
 
@@ -132,14 +181,30 @@
             };
 
             tbody.addEventListener('click', (event) => {
+                // Handle delete button
                 if (event.target.classList.contains('delete-btn')) {
                     const key = event.target.dataset.key;
                     deleteAlarm(key);
+                    return; // Stop further processing
+                }
+
+                // Handle row expansion by finding the parent TR
+                let target = event.target;
+                while (target && target.tagName !== 'TR') {
+                    target = target.parentElement;
+                }
+
+                if (target && target.classList.contains('expandable')) {
+                    const detailRow = target.nextElementSibling;
+                    if (detailRow && detailRow.classList.contains('details-row')) {
+                        detailRow.style.display = detailRow.style.display === 'none' ? 'table-row' : 'none';
+                    }
                 }
             });
 
             function escapeHtml(unsafe) {
-                return unsafe
+                const str = String(unsafe);
+                return str
                     .replace(/&/g, "&amp;")
                     .replace(/</g, "&lt;")
                     .replace(/>/g, "&gt;")
@@ -148,12 +213,32 @@
             }
 
             fetchAlarms();
-            // Refresh alarms every 5 seconds
-            setInterval(fetchAlarms, 5000);
+
+            document.getElementById('refreshBtn').addEventListener('click', fetchAlarms);
 
             document.getElementById('logoutBtn').addEventListener('click', () => {
                 window.location.href = '/logout';
             });
+
+            const deleteAllAlarms = async () => {
+                if (!confirm('Are you sure you want to delete ALL alarms? This action cannot be undone.')) {
+                    return;
+                }
+                try {
+                    const response = await fetch('/api/alarms', {
+                        method: 'DELETE',
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    fetchAlarms(); // Refresh the table
+                } catch (error) {
+                    console.error('Delete All error:', error);
+                    alert('Failed to delete all alarms.');
+                }
+            };
+
+            document.getElementById('deleteAllBtn').addEventListener('click', deleteAllAlarms);
         });
     </script>
 
