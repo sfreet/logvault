@@ -1,0 +1,22 @@
+# Binaries
+logvault
+
+# Config files (will be mounted)
+config.yaml
+server.crt
+server.key
+
+# Test/capture data
+*.pcap
+
+# Git
+.git
+.gitignore
+
+# Go modules (handled in build stage)
+# vendor/
+
+# OS/IDE files
+.DS_Store
+*~
+.vscode/

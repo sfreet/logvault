@@ -1,0 +1,41 @@
+# Docker Compose file for Logvault
+# Version '3.8' is a good modern choice.
+version: '3.8'
+
+services:
+  # The Logvault application service
+  logvault:
+    # Use the image we built with 'docker build -t logvault .'
+    image: logvault:latest
+    container_name: logvault-app
+    restart: always
+    # Depends on Redis being available
+    depends_on:
+      - redis
+    ports:
+      # Map host port 8080 to container port 8080 for the web UI
+      - "8080:8080"
+      # Map host port 514 to container port 514 for Syslog (UDP)
+      - "514:514/udp"
+    volumes:
+      # Mount the configuration file from the host into the container
+      # This allows you to change config without rebuilding the image.
+      - ./config.yaml:/app/config.yaml:ro
+      
+      # Mount TLS certificates if you are using HTTPS.
+      # Create these files or leave these lines commented out if not using HTTPS.
+      - ./server.crt:/app/server.crt:ro
+      - ./server.key:/app/server.key:ro
+
+  # The Redis database service
+  redis:
+    image: redis:7-alpine
+    container_name: logvault-redis
+    restart: always
+    volumes:
+      # This named volume persists Redis data across container restarts.
+      - redis-data:/data
+
+# Top-level volumes definition
+volumes:
+  redis-data:
