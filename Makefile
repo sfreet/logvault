@@ -10,13 +10,21 @@ GORUN=$(GOCMD) run
 # Binary Name
 BINARY_NAME=logvault
 
-.PHONY: all build run clean test help
+.PHONY: all build run clean test help docker docker-build
 
 all: build
 
 # Build the application binary
 build:
 	CGO_ENABLED=0 GOOS=linux $(GOBUILD) -a -ldflags="-s -w" -o $(BINARY_NAME) .
+
+# Build the docker image
+docker-build:
+	docker build -t logvault .
+
+# Alias for docker-build
+docker: docker-build
+
 
 # Run the application
 run: 
