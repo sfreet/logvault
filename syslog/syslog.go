@@ -127,8 +127,67 @@ func processLogs(rdb *redis.RedisClient, appConfig config.Config, channel syslog
 			}
 		case "INSIGHTS":
 			parseAndSaveAsJSON(rdb, message, appConfig, tag)
+		case "THREAT":
+			parseThreatMessageAndSave(rdb, message, appConfig, tag)
 		default:
 			saveWithRandomKey(rdb, message, tag)
+		}
+	}
+}
+
+func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig config.Config, tag string) {
+	// Generate a random key for the new entry
+	randomBytes := make([]byte, 16)
+	if _, err := rand.Read(randomBytes); err != nil {
+		log.Printf("Failed to generate random key for THREAT log: %v", err)
+		return
+	}
+	key := alarmPrefix + hex.EncodeToString(randomBytes)
+
+	// Define the field names in order
+	fields := []string{
+		"Score", "DetectTime", "DetectType", "DetectSubType", "FileName",
+		"RuleName", "IP", "AuthID", "AuthName", "AuthDeptName",
+	}
+
+	// Split the message by the backtick delimiter
+	values := strings.Split(message, "`")
+
+	// Create a map to hold the structured data
+	jsonData := make(map[string]interface{})
+	jsonData["tag"] = tag
+
+	// Populate the map with parsed data
+	for i, field := range fields {
+		if i < len(values) {
+			jsonData[field] = values[i]
+		} else {
+			jsonData[field] = "" // Assign empty string if value is missing
+		}
+	}
+
+	// Add any extra fields from the log message
+	if len(values) > len(fields) {
+		jsonData["extra_data"] = strings.Join(values[len(fields):], "`")
+	}
+
+	// Marshal the map into a JSON string
+	jsonBytes, err := json.Marshal(jsonData)
+	if err != nil {
+		log.Printf("Failed to marshal THREAT data: %v. Falling back to raw log.", err)
+		// Fallback to saving the raw message if JSON marshaling fails
+		saveWithRandomKey(rdb, message, tag)
+		return
+	}
+
+	// Save the JSON string to Redis
+	jsonString := string(jsonBytes)
+	if err := rdb.Set(key, jsonString, 0); err != nil {
+		log.Printf("Failed to SET key %s for THREAT log: %v", key, err)
+	} else {
+		log.Printf("SAVED: Set key %s for THREAT message (as JSON)", key)
+		if appConfig.ExternalAPI.Enabled && shouldTriggerNotifier(tag, appConfig.ExternalAPI.TriggerTags) {
+			go notifier.CallExternalAPI(appConfig, map[string]string{"key": key, "message": jsonString, "status": tag})
 		}
 	}
 }
