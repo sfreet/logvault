@@ -77,31 +77,43 @@
     <header>Logvault Alarms <button id="refreshBtn" style="float: right; margin-left: 10px; padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh</button><button id="deleteAllBtn" style="float: right; margin-left: 10px; padding: 8px 15px; background-color: #c82333; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete All</button><button id="logoutBtn" style="float: right; padding: 8px 15px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Logout</button></header>
 
     <main>
+        <div id="threat-alarms-container" style="display: none; margin-bottom: 2rem;">
+            <h2>Threat Alarms</h2>
+            <div style="overflow-x: auto;">
+                <table id="threat-alarms-table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="alarms-container">
+            <h2>Other Alarms</h2>
             <table id="alarms-table">
                 <thead>
                     <tr>
                         <th>TAG</th>
-                        <th>Key (IP/Host)</th>
+                        <th>Key</th>
                         <th>Alarm Message</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="alarms-tbody">
-                    <!-- Alarms will be rendered here -->
+                    <!-- Other alarms will be rendered here -->
                 </tbody>
             </table>
-            <p id="loading">Loading alarms...</p>
         </div>
+        <p id="loading">Loading alarms...</p>
     </main>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const tbody = document.getElementById('alarms-tbody');
+            const mainElement = document.querySelector('main');
             const loading = document.getElementById('loading');
 
             const fetchAlarms = async () => {
                 try {
+                    loading.style.display = 'block';
                     const response = await fetch('/api/alarms');
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -115,25 +127,98 @@
             };
 
             const renderAlarms = (alarms) => {
-                tbody.innerHTML = ''; // Clear existing rows
+                const otherTbody = document.getElementById('alarms-tbody');
+                const threatContainer = document.getElementById('threat-alarms-container');
+                const threatTable = document.getElementById('threat-alarms-table');
+                const threatThead = threatTable.querySelector('thead');
+                const threatTbody = threatTable.querySelector('tbody');
+
+                // Clear previous content
+                otherTbody.innerHTML = '';
+                threatTbody.innerHTML = '';
+                threatThead.innerHTML = '';
+                threatContainer.style.display = 'none';
+
                 if (Object.keys(alarms).length === 0) {
                     loading.textContent = 'No active alarms found.';
-                } else {
-                    loading.style.display = 'none';
+                    return;
                 }
+                
+                loading.style.display = 'none';
+
+                const threatAlarms = {};
+                const otherAlarms = {};
 
                 for (const key in alarms) {
-                    const data = alarms[key];
-                    const tag = data.tag || 'N/A';
+                    const alarmData = alarms[key];
+                    // The backend might return a string instead of a JSON object for some reason.
+                    // We should handle this case gracefully.
+                    if (typeof alarmData === 'object' && alarmData !== null && alarmData.tag === 'THREAT') {
+                        threatAlarms[key] = alarmData;
+                    } else {
+                        otherAlarms[key] = alarmData;
+                    }
+                }
 
-                    // Check if the message is complex (from Insights) or simple
+                // Render THREAT alarms into a dynamic table
+                if (Object.keys(threatAlarms).length > 0) {
+                    threatContainer.style.display = 'block';
+                    
+                    // Gather all unique headers from all threat alarms
+                    const headerSet = new Set();
+                    for (const key in threatAlarms) {
+                        Object.keys(threatAlarms[key]).forEach(header => headerSet.add(header));
+                    }
+                    const headers = Array.from(headerSet);
+
+                    const headerRow = threatThead.insertRow();
+                    headers.forEach(header => {
+                        const th = document.createElement('th');
+                        th.textContent = header;
+                        headerRow.appendChild(th);
+                    });
+                    const actionTh = document.createElement('th');
+                    actionTh.textContent = 'Action';
+                    headerRow.appendChild(actionTh);
+
+                    for (const key in threatAlarms) {
+                        const data = threatAlarms[key];
+                        const row = threatTbody.insertRow();
+                        headers.forEach(header => {
+                            const cell = row.insertCell();
+                            cell.textContent = data[header] || 'N/A'; // Handle missing properties
+                        });
+                        const actionCell = row.insertCell();
+                        actionCell.innerHTML = `<button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button>`;
+                    }
+                }
+
+                // Render other alarms (simple and complex)
+                if (Object.keys(otherAlarms).length > 0) {
+                     document.getElementById('alarms-container').style.display = 'block';
+                } else {
+                     document.getElementById('alarms-container').style.display = 'none';
+                }
+
+                for (const key in otherAlarms) {
+                    const data = otherAlarms[key];
+                     if (typeof data !== 'object' || data === null) {
+                        const row = otherTbody.insertRow();
+                        row.innerHTML = `
+                            <td>N/A</td>
+                            <td>${escapeHtml(key)}</td>
+                            <td>${escapeHtml(String(data))}</td>
+                            <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
+                        `;
+                        continue;
+                    }
+
+                    const tag = data.tag || 'N/A';
                     const isComplex = data.hasOwnProperty('field_0');
 
                     if (isComplex) {
                         const summary = data.field_0 || JSON.stringify(data).substring(0, 100) + '...';
-
-                        // Main, visible row for complex data
-                        const mainRow = tbody.insertRow();
+                        const mainRow = otherTbody.insertRow();
                         mainRow.className = 'expandable';
                         mainRow.innerHTML = `
                             <td>${escapeHtml(tag)}</td>
@@ -141,17 +226,12 @@
                             <td>${escapeHtml(summary)}</td>
                             <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
                         `;
-
-                        // Hidden, collapsible row for full JSON
-                        const detailRow = tbody.insertRow();
+                        const detailRow = otherTbody.insertRow();
                         detailRow.className = 'details-row';
                         detailRow.style.display = 'none';
-                        detailRow.innerHTML = `
-                            <td colspan="4"><pre><code>${escapeHtml(JSON.stringify(data, null, 2))}</code></pre></td>
-                        `;
+                        detailRow.innerHTML = `<td colspan="4"><pre><code>${escapeHtml(JSON.stringify(data, null, 2))}</code></pre></td>`;
                     } else {
-                        // Simple message (e.g., ALARM, NONE)
-                        const row = tbody.insertRow();
+                        const row = otherTbody.insertRow();
                         row.innerHTML = `
                             <td>${escapeHtml(tag)}</td>
                             <td>${escapeHtml(key)}</td>
@@ -179,8 +259,8 @@
                     alert('Failed to delete alarm.');
                 }
             };
-
-            tbody.addEventListener('click', (event) => {
+            
+            mainElement.addEventListener('click', (event) => {
                 // Handle delete button
                 if (event.target.classList.contains('delete-btn')) {
                     const key = event.target.dataset.key;
