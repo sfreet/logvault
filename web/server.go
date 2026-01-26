@@ -32,8 +32,16 @@ mux.HandleFunc("/api/alarms", AuthMiddleware(alarmsHandler(rdb, appConfig)))
 	mux.HandleFunc("/api/alarms/", AuthMiddleware(alarmsHandler(rdb, appConfig))) // For DELETE requests with key
 
 	addr := fmt.Sprintf(":%d", appConfig.Web.Port)
-	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
-		log.Fatalf("Web server failed: %v", err)
+	if appConfig.Web.CertFile != "" && appConfig.Web.KeyFile != "" {
+		log.Printf("Web UI server starting with HTTPS. Listening on https://0.0.0.0:%d", appConfig.Web.Port)
+		if err := http.ListenAndServeTLS(addr, appConfig.Web.CertFile, appConfig.Web.KeyFile, corsMiddleware(mux)); err != nil {
+			log.Fatalf("Web server failed: %v", err)
+		}
+	} else {
+		log.Printf("Web UI server starting with HTTP. Listening on http://0.0.0.0:%d", appConfig.Web.Port)
+		if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
+			log.Fatalf("Web server failed: %v", err)
+		}
 	}
 }
 

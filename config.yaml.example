@@ -16,6 +16,8 @@ redis:
 web:
   port: 8080
   secret: "your_secret_password" # Add a secret for web UI login
+  cert_file: "" # Path to TLS certificate file (e.g., server.crt)
+  key_file: "" # Path to TLS key file (e.g., server.key)
 
 # API settings
 api:

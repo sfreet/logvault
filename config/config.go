@@ -19,8 +19,10 @@ type Config struct {
 		DB       int    `mapstructure:"db"`
 	} `mapstructure:"redis"`
 	Web struct {
-		Port   int    `mapstructure:"port"`
-		Secret string `mapstructure:"secret"`
+		Port     int    `mapstructure:"port"`
+		Secret   string `mapstructure:"secret"`
+		CertFile string `mapstructure:"cert_file"`
+		KeyFile  string `mapstructure:"key_file"`
 	} `mapstructure:"web"`
 	API struct {
 		BearerToken string `mapstructure:"bearer_token"`

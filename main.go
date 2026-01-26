@@ -37,7 +37,6 @@ func main() {
 
 	// Start Web server
 	go web.StartServer(rdb, appConfig)
-	log.Printf("Web UI server started. Listening on http://0.0.0.0:%d", appConfig.Web.Port)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
