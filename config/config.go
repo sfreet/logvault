@@ -57,7 +57,7 @@ func LoadConfig() (Config, error) {
 	viper.SetDefault("external_api.url", "")
 	viper.SetDefault("external_api.method", "POST")
 	viper.SetDefault("external_api.bearer_token", "")
-	viper.SetDefault("external_api.trigger_tag", "ALARM")
+	viper.SetDefault("external_api.trigger_tags", "ALARM")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
