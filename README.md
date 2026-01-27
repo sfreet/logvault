@@ -30,7 +30,7 @@ You need to have the following software installed:
 
 ### Installation and Running
 
-There are two ways to run Logvault:
+Logvault can be run in a Docker container or built from source.
 
 1.  **Using Docker Compose (Recommended)**
 
@@ -55,7 +55,24 @@ There are two ways to run Logvault:
         ```
         The application will be available at `http://localhost:8080`.
 
-2.  **Building from Source**
+2.  **Building and Running Docker Image Manually**
+
+    If you want to build and run the Docker image yourself:
+
+    1.  **Clone the repository and configure as above.**
+
+    2.  **Build the Docker image:**
+        ```sh
+        make docker # This runs `docker build -t logvault .`
+        ```
+
+    3.  **Run the Docker container:**
+        ```sh
+        docker run -d --name logvault -p 8080:8080 -p 514:514/udp --network host logvault
+        # Make sure Redis is running and accessible from the container
+        ```
+
+3.  **Building from Source**
 
     If you prefer to build the application manually:
 
@@ -66,26 +83,17 @@ There are two ways to run Logvault:
         docker run -d --name logvault-redis -p 6379:6379 redis
         ```
 
-    2.  **Clone the repository:**
-        ```sh
-        git clone https://github.com/sfreet/logvault.git
-        cd logvault
-        ```
+    2.  **Clone the repository and configure as above.**
 
-    3.  **Configure the application:**
-        Rename `config.yaml.example` to `config.yaml` and customize it.
-        ```sh
-        cp config.yaml.example config.yaml
-        # Now edit config.yaml
-        ```
-
-    4.  **Build and run the application:**
+    3.  **Build and run the application:**
         ```sh
         go mod tidy
-        make build
+        make build # This compiles the Go application into a binary named 'logvault'
         ./logvault
         ```
         You may need to use `sudo` if you are listening on a privileged port like 514.
+
+    **Note:** You can use `make help` to see all available Makefile commands.
 
 ## Usage
 
