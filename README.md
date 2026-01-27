@@ -115,19 +115,35 @@ You will be prompted to enter the secret configured in `config.yaml` to access t
 
 ### REST API
 
-Logvault provides a REST API to retrieve all active alarms from Redis. The API is secured with a Bearer token.
+Logvault provides two sets of REST API endpoints for accessing data.
 
-**Endpoint:** `GET /api/data`
+#### Bearer Token Authenticated Endpoint
 
-**Authentication:**
-Set a `bearer_token` in your `config.yaml` under the `api` section. Then, include it in the `Authorization` header of your request.
+This endpoint is intended for external services and programmatic access. It is secured with a Bearer token.
+
+-   **Endpoint:** `GET /api/data`
+-   **Authentication:** `Bearer Token`
+    -   Set a `bearer_token` in your `config.yaml` under the `api` section.
+    -   Include it in the `Authorization` header of your request.
+-   **Description:** Retrieves all raw key-value pairs currently stored in Redis, including non-alarm data.
 
 **Example Request:**
 ```bash
 curl -H "Authorization: Bearer your_bearer_token" http://localhost:8080/api/data
 ```
 
-The API will return a JSON object containing all key-value pairs from Redis.
+#### Web UI / Session Authenticated Endpoints
+
+These endpoints are used by the web UI and are protected by the same session cookie as the web interface. They are primarily for managing alarms.
+
+-   **Endpoint:** `GET /api/alarms`
+    -   **Description:** Retrieves all active alarms. The response is a JSON object containing key-value pairs for all entries with the `alarm:` prefix.
+
+-   **Endpoint:** `DELETE /api/alarms/{key}`
+    -   **Description:** Deletes a specific alarm by its key. For example, a request to `/api/alarms/192.168.1.100` will delete the `alarm:192.168.1.100` key from Redis.
+
+-   **Endpoint:** `DELETE /api/alarms` or `DELETE /api/alarms/`
+    -   **Description:** Deletes all alarms from Redis. This is used by the "Delete All" button in the web UI.
 
 ## License
 
