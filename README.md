@@ -12,6 +12,7 @@ It's designed to be a lightweight solution for scenarios where you need to track
   - `CLEAR`: Deletes an alarm.
 - **Redis Backend**: Uses Redis to store the current state of active alarms.
 - **Real-time Web UI**: A clean web interface that automatically refreshes to show the current list of active alarms.
+- **HTTPS Support**: The web server can serve traffic over HTTPS if a TLS certificate and key are provided.
 - **Web UI Authentication**: Secure your web interface with a configurable secret password.
 - **Logout Functionality**: Allows users to securely log out of the web UI.
 - **Manual Deletion**: Allows manual deletion of alarms directly from the web UI.
@@ -115,11 +116,15 @@ You can use the standard `logger` utility to send syslog messages to Logvault.
 
 ### Accessing the Web UI
 
-Once the application is running, open your web browser and navigate to:
+Once the application is running, open your web browser and navigate to the appropriate address.
 
-**http://localhost:8080**
+-   **HTTP:** By default, the server runs on HTTP.
+    **http://localhost:8080**
 
-You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms. It auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
+-   **HTTPS:** If you have configured a `cert_file` and `key_file` in your `config.yaml`, the server will run on HTTPS.
+    **https://localhost:8080**
+
+You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms and auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
 
 ### REST API
 
