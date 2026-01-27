@@ -16,4 +16,3 @@
 
 # Go workspace file
 go.work
-\n# TLS certificates\nserver.crt\nserver.key
