@@ -29,4 +29,4 @@ external_api:
   url: "http://example.com/api/event"
   method: "POST"
   bearer_token: "" # Optional: Bearer token for external API authentication
-  trigger_tag: "ALARM" # Syslog tag that triggers the external API call
+  trigger_tags: "ALARM,CRITICAL" # Comma-separated list of syslog tags that trigger the external API call

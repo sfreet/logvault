@@ -19,48 +19,73 @@ It's designed to be a lightweight solution for scenarios where you need to track
 
 ## Getting Started
 
-Follow these instructions to get Logvault up and running on your local machine.
+Follow these instructions to get Logvault up and running.
 
 ### Prerequisites
 
 You need to have the following software installed:
 
-- **Go**: Version 1.18 or higher.
-- **Redis**: A running Redis instance. You can install it locally or use Docker.
-  ```sh
-  # Using Docker (recommended)
-  docker run -d --name logvault-redis -p 6379:6379 redis
+- **Go**: Version 1.18 or higher (for building from source).
+- **Docker** and **Docker Compose**: For running the application in containers.
 
-  # Using apt (Debian/Ubuntu)
-  sudo apt-get update && sudo apt-get install redis-server
-  ```
+### Installation and Running
 
-### Installation
+There are two ways to run Logvault:
 
-1.  **Clone the repository:**
-    ```sh
-    git clone https://github.com/sfreet/logvault.git
-    cd logvault
-    ```
+1.  **Using Docker Compose (Recommended)**
 
-2.  **Configure the application:**
-    Copy or rename `config.yaml.example` to `config.yaml` if you need to make changes. The default settings should work for a local setup.
+    This is the easiest way to get started. It automatically builds the Go application and runs it alongside a Redis container.
 
-3.  **Initialize Go Modules and Build the application:**
-    Ensure you are in the project root directory where `go.mod` is located.
-    ```sh
-    go mod tidy
-    make build
-    ```
-    This command compiles the source code and creates an executable file named `logvault`.
+    1.  **Clone the repository:**
+        ```sh
+        git clone https://github.com/sfreet/logvault.git
+        cd logvault
+        ```
 
-4.  **Run the application:**
-    ```sh
-    ./logvault
-    # Or with sudo if you need to listen on a privileged port like 514
-    # sudo ./logvault
-    ```
-    You should see output indicating that the Redis connection was successful and the servers are running.
+    2.  **Configure the application:**
+        Rename `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set a `secret` for the web UI and a `bearer_token` for the API.
+        ```sh
+        cp config.yaml.example config.yaml
+        # Now edit config.yaml
+        ```
+
+    3.  **Build and run with Docker Compose:**
+        ```sh
+        docker-compose up --build
+        ```
+        The application will be available at `http://localhost:8080`.
+
+2.  **Building from Source**
+
+    If you prefer to build the application manually:
+
+    1.  **Install Redis:**
+        Make sure you have a running Redis instance.
+        ```sh
+        # Using Docker
+        docker run -d --name logvault-redis -p 6379:6379 redis
+        ```
+
+    2.  **Clone the repository:**
+        ```sh
+        git clone https://github.com/sfreet/logvault.git
+        cd logvault
+        ```
+
+    3.  **Configure the application:**
+        Rename `config.yaml.example` to `config.yaml` and customize it.
+        ```sh
+        cp config.yaml.example config.yaml
+        # Now edit config.yaml
+        ```
+
+    4.  **Build and run the application:**
+        ```sh
+        go mod tidy
+        make build
+        ./logvault
+        ```
+        You may need to use `sudo` if you are listening on a privileged port like 514.
 
 ## Usage
 
@@ -88,83 +113,22 @@ Once the application is running, open your web browser and navigate to:
 
 You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms. It auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
 
-### REST API for Redis Data
+### REST API
 
-Logvault exposes a REST API endpoint to retrieve all data stored in Redis. This API is secured using a Bearer token.
+Logvault provides a REST API to retrieve all active alarms from Redis. The API is secured with a Bearer token.
 
 **Endpoint:** `GET /api/data`
 
 **Authentication:**
-This API requires a Bearer token in the `Authorization` header.
+Set a `bearer_token` in your `config.yaml` under the `api` section. Then, include it in the `Authorization` header of your request.
 
-1.  **Configure your Bearer Token:**
-    Edit your `config.yaml` file and set a strong, unique `bearer_token` under the `api` section:
-    ```yaml
-    # API settings
-    api:
-      bearer_token: "your_chosen_bearer_token" # Choose a strong, unique token
-    ```
-
-2.  **Call the API:**
-    Once Logvault is running, you can call the API using `curl` (replace `your_chosen_bearer_token` with your actual token):
-    ```bash
-    curl -H "Authorization: Bearer your_chosen_bearer_token" http://localhost:8080/api/data
-    ```
-    The API will return a JSON object containing all key-value pairs currently stored in Redis.
-
-### External API Integration
-
-Logvault can be configured to call an external REST API when a syslog message with a specific tag is processed. This allows for event-driven integrations with other systems.
-
-**Configuration:**
-Edit your `config.yaml` file and configure the `external_api` section:
-
-```yaml
-# External API integration settings
-external_api:
-  enabled: false # Set to true to enable this feature
-  url: "http://example.com/api/event" # The URL of your external API endpoint
-  method: "POST" # HTTP method (e.g., GET, POST, PUT, DELETE)
-  bearer_token: "" # Optional: Bearer token for external API authentication
-  trigger_tag: "ALARM" # The syslog app_name (tag) that will trigger the API call
+**Example Request:**
+```bash
+curl -H "Authorization: Bearer your_bearer_token" http://localhost:8080/api/data
 ```
 
-**How it works:**
-When Logvault processes a syslog message whose `app_name` matches the `trigger_tag` configured in `config.yaml`, it will make an HTTP request to the specified `url` with the configured `method`. The payload sent to the external API will be a JSON object containing the `key`, `message`, and `status` (ALARM/CLEAR) of the processed syslog event.
-
-**Example Payload:**
-```json
-{
-  "key": "alarm:192.168.1.100",
-  "message": "192.168.1.100 System is overheating",
-  "status": "ALARM"
-}
-```
-
-## Configuration
-
-You can configure the application by editing the `config.yaml` file.
-
-```yaml
-# Syslog server settings
-syslog:
-  host: "0.0.0.0"
-  port: 514
-  protocol: "udp"
-
-# Redis settings
-redis:
-  address: "localhost:6379"
-  password: ""
-  db: 0
-
-# Web UI settings
-web:
-  port: 8080
-  secret: "your_secret_password" # Add a secret for web UI login
-```
+The API will return a JSON object containing all key-value pairs from Redis.
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-oject is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
