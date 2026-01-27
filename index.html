@@ -4,282 +4,283 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logvault Alarms</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            background-color: #f0f2f5;
-            color: #333;
-        }
-        header {
-            background-color: #fff;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #ddd;
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-        main {
-            padding: 2rem;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-        }
-        th, td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
             background-color: #f8f9fa;
         }
-        td pre {
-            margin: 0;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            padding: 0.5rem;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+        .container {
+            margin-top: 2rem;
         }
-        td code {
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-            font-size: 0.9em;
-        }
-        .expandable {
-            cursor: pointer;
-        }
-        .details-row > td {
-            background-color: #fdfdfd;
-        }
-        .delete-btn {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .delete-btn:hover {
-            background-color: #c0392b;
+        .card-header {
+            font-size: 1.25rem;
+            font-weight: 500;
         }
         #loading {
             text-align: center;
             padding: 2rem;
             font-style: italic;
         }
+        .details-row > td {
+            background-color: #fdfdfd;
+        }
+        td.details-control {
+            background: url('https://datatables.net/examples/resources/details_open.png') no-repeat center center;
+            cursor: pointer;
+        }
+        tr.details td.details-control {
+            background: url('https://datatables.net/examples/resources/details_close.png') no-repeat center center;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        #threat-alarms-table td, #alarms-table td {
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
 
-    <header>Logvault Alarms <button id="refreshBtn" style="float: right; margin-left: 10px; padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh</button><button id="deleteAllBtn" style="float: right; margin-left: 10px; padding: 8px 15px; background-color: #c82333; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete All</button><button id="logoutBtn" style="float: right; padding: 8px 15px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Logout</button></header>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Logvault Alarms</a>
+            <div>
+                <button id="refreshBtn" class="btn btn-primary">Refresh</button>
+                <button id="deleteAllBtn" class="btn btn-danger">Delete All</button>
+                <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </nav>
 
-    <main>
-        <div id="threat-alarms-container" style="display: none; margin-bottom: 2rem;">
-            <h2>Threat Alarms</h2>
-            <div style="overflow-x: auto;">
-                <table id="threat-alarms-table">
-                    <thead></thead>
-                    <tbody></tbody>
-                </table>
+    <main class="container-fluid">
+        <div id="threat-alarms-container" class="card shadow-sm mb-4" style="display: none;">
+            <div class="card-header">
+                Threat Alarms
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="threat-alarms-table" class="table table-striped table-bordered" style="width:100%">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <div id="alarms-container">
-            <h2>Other Alarms</h2>
-            <table id="alarms-table">
-                <thead>
-                    <tr>
-                        <th>TAG</th>
-                        <th>Key</th>
-                        <th>Alarm Message</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="alarms-tbody">
-                    <!-- Other alarms will be rendered here -->
-                </tbody>
-            </table>
+        <div id="alarms-container" class="card shadow-sm">
+            <div class="card-header">
+                Other Alarms
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="alarms-table" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>TAG</th>
+                                <th>Key</th>
+                                <th>Alarm Message</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         <p id="loading">Loading alarms...</p>
     </main>
 
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const mainElement = document.querySelector('main');
-            const loading = document.getElementById('loading');
+        $(document).ready(function() {
+            const loading = $('#loading');
 
-            const fetchAlarms = async () => {
-                try {
-                    loading.style.display = 'block';
-                    const response = await fetch('/api/alarms');
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+            // Destroy existing DataTables instances if they exist
+            if ($.fn.DataTable.isDataTable('#threat-alarms-table')) {
+                $('#threat-alarms-table').DataTable().destroy();
+            }
+            if ($.fn.DataTable.isDataTable('#alarms-table')) {
+                $('#alarms-table').DataTable().destroy();
+            }
+
+            const fetchAlarms = () => {
+                loading.show();
+                $.ajax({
+                    url: '/api/alarms',
+                    method: 'GET',
+                    success: function(alarms) {
+                        renderAlarms(alarms);
+                        loading.hide();
+                    },
+                    error: function(xhr, status, error) {
+                        loading.text('Failed to load alarms.').show();
+                        console.error('Fetch error:', error);
                     }
-                    const alarms = await response.json();
-                    renderAlarms(alarms);
-                } catch (error) {
-                    loading.textContent = 'Failed to load alarms.';
-                    console.error('Fetch error:', error);
-                }
+                });
             };
 
             const renderAlarms = (alarms) => {
-                const otherTbody = document.getElementById('alarms-tbody');
-                const threatContainer = document.getElementById('threat-alarms-container');
-                const threatTable = document.getElementById('threat-alarms-table');
-                const threatThead = threatTable.querySelector('thead');
-                const threatTbody = threatTable.querySelector('tbody');
-
-                // Clear previous content
-                otherTbody.innerHTML = '';
-                threatTbody.innerHTML = '';
-                threatThead.innerHTML = '';
-                threatContainer.style.display = 'none';
-
-                if (Object.keys(alarms).length === 0) {
-                    loading.textContent = 'No active alarms found.';
-                    return;
-                }
-                
-                loading.style.display = 'none';
-
                 const threatAlarms = {};
                 const otherAlarms = {};
 
                 for (const key in alarms) {
                     const alarmData = alarms[key];
-                    // The backend might return a string instead of a JSON object for some reason.
-                    // We should handle this case gracefully.
                     if (typeof alarmData === 'object' && alarmData !== null && alarmData.tag === 'THREAT') {
-                        threatAlarms[key] = alarmData;
+                        threatAlarms[key] = { ...alarmData, original_key: key };
                     } else {
-                        otherAlarms[key] = alarmData;
+                        otherAlarms[key] = { data: alarmData, original_key: key };
                     }
                 }
+                
+                renderThreatAlarms(Object.values(threatAlarms));
+                renderOtherAlarms(Object.values(otherAlarms));
 
-                // Render THREAT alarms into a dynamic table
-                if (Object.keys(threatAlarms).length > 0) {
-                    threatContainer.style.display = 'block';
-                    
-                    // Gather all unique headers from all threat alarms
-                    const headerSet = new Set();
-                    for (const key in threatAlarms) {
-                        Object.keys(threatAlarms[key]).forEach(header => headerSet.add(header));
-                    }
-                    const headers = Array.from(headerSet);
-
-                    const headerRow = threatThead.insertRow();
-                    headers.forEach(header => {
-                        const th = document.createElement('th');
-                        th.textContent = header;
-                        headerRow.appendChild(th);
-                    });
-                    const actionTh = document.createElement('th');
-                    actionTh.textContent = 'Action';
-                    headerRow.appendChild(actionTh);
-
-                    for (const key in threatAlarms) {
-                        const data = threatAlarms[key];
-                        const row = threatTbody.insertRow();
-                        headers.forEach(header => {
-                            const cell = row.insertCell();
-                            cell.textContent = data[header] || 'N/A'; // Handle missing properties
-                        });
-                        const actionCell = row.insertCell();
-                        actionCell.innerHTML = `<button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button>`;
-                    }
-                }
-
-                // Render other alarms (simple and complex)
-                if (Object.keys(otherAlarms).length > 0) {
-                     document.getElementById('alarms-container').style.display = 'block';
+                if (Object.keys(alarms).length === 0) {
+                    loading.text('No active alarms found.').show();
                 } else {
-                     document.getElementById('alarms-container').style.display = 'none';
-                }
-
-                for (const key in otherAlarms) {
-                    const data = otherAlarms[key];
-                     if (typeof data !== 'object' || data === null) {
-                        const row = otherTbody.insertRow();
-                        row.innerHTML = `
-                            <td>N/A</td>
-                            <td>${escapeHtml(key)}</td>
-                            <td>${escapeHtml(String(data))}</td>
-                            <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
-                        `;
-                        continue;
-                    }
-
-                    const tag = data.tag || 'N/A';
-                    const isComplex = data.hasOwnProperty('field_0');
-
-                    if (isComplex) {
-                        const summary = data.field_0 || JSON.stringify(data).substring(0, 100) + '...';
-                        const mainRow = otherTbody.insertRow();
-                        mainRow.className = 'expandable';
-                        mainRow.innerHTML = `
-                            <td>${escapeHtml(tag)}</td>
-                            <td>${escapeHtml(key)}</td>
-                            <td>${escapeHtml(summary)}</td>
-                            <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
-                        `;
-                        const detailRow = otherTbody.insertRow();
-                        detailRow.className = 'details-row';
-                        detailRow.style.display = 'none';
-                        detailRow.innerHTML = `<td colspan="4"><pre><code>${escapeHtml(JSON.stringify(data, null, 2))}</code></pre></td>`;
-                    } else {
-                        const row = otherTbody.insertRow();
-                        row.innerHTML = `
-                            <td>${escapeHtml(tag)}</td>
-                            <td>${escapeHtml(key)}</td>
-                            <td>${escapeHtml(String(data.message))}</td>
-                            <td><button class="delete-btn" data-key="${escapeHtml(key)}">Delete</button></td>
-                        `;
-                    }
-                }
-            };
-
-            const deleteAlarm = async (key) => {
-                if (!confirm(`Are you sure you want to delete the alarm for ${key}?`)) {
-                    return;
-                }
-                try {
-                    const response = await fetch(`/api/alarms/${key}`, {
-                        method: 'DELETE',
-                    });
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    fetchAlarms(); // Refresh the table
-                } catch (error) {
-                    console.error('Delete error:', error);
-                    alert('Failed to delete alarm.');
+                    loading.hide();
                 }
             };
             
-            mainElement.addEventListener('click', (event) => {
-                // Handle delete button
-                if (event.target.classList.contains('delete-btn')) {
-                    const key = event.target.dataset.key;
-                    deleteAlarm(key);
-                    return; // Stop further processing
-                }
+            const renderThreatAlarms = (threatAlarms) => {
+                const container = $('#threat-alarms-container');
+                if (threatAlarms.length > 0) {
+                    container.show();
 
-                // Handle row expansion by finding the parent TR
-                let target = event.target;
-                while (target && target.tagName !== 'TR') {
-                    target = target.parentElement;
-                }
+                    const headerSet = new Set();
+                    threatAlarms.forEach(alarm => {
+                        Object.keys(alarm).forEach(header => {
+                            if(header !== 'original_key') headerSet.add(header);
+                        });
+                    });
+                    const headers = Array.from(headerSet);
 
-                if (target && target.classList.contains('expandable')) {
-                    const detailRow = target.nextElementSibling;
-                    if (detailRow && detailRow.classList.contains('details-row')) {
-                        detailRow.style.display = detailRow.style.display === 'none' ? 'table-row' : 'none';
+                    let thead = '<tr>';
+                    headers.forEach(header => thead += `<th>${header}</th>`);
+                    thead += '<th>Action</th></tr>';
+                    $('#threat-alarms-table thead').html(thead);
+
+                    if ($.fn.DataTable.isDataTable('#threat-alarms-table')) {
+                        $('#threat-alarms-table').DataTable().clear().destroy();
                     }
+
+                    $('#threat-alarms-table').DataTable({
+                        data: threatAlarms,
+                        columns: [
+                            ...headers.map(header => ({ data: header, defaultContent: 'N/A' })),
+                            {
+                                data: 'original_key',
+                                render: function(data, type, row) {
+                                    return `<button class="btn btn-danger btn-sm delete-btn" data-key="${escapeHtml(data)}">Delete</button>`;
+                                },
+                                orderable: false
+                            }
+                        ],
+                        responsive: true,
+                        "bDestroy": true
+                    });
+                } else {
+                    container.hide();
                 }
+            };
+
+            const renderOtherAlarms = (otherAlarms) => {
+                 const container = $('#alarms-container');
+                 if (otherAlarms.length > 0) {
+                    container.show();
+                    if ($.fn.DataTable.isDataTable('#alarms-table')) {
+                        $('#alarms-table').DataTable().clear().destroy();
+                    }
+
+                    const otherTable = $('#alarms-table').DataTable({
+                        data: otherAlarms,
+                        columns: [
+                            {
+                                className: 'details-control',
+                                orderable: false,
+                                data: null,
+                                defaultContent: ''
+                            },
+                            { 
+                                data: 'data.tag', 
+                                defaultContent: 'N/A',
+                                render: function(data, type, row) {
+                                    return escapeHtml(data);
+                                }
+                            },
+                            { 
+                                data: 'original_key',
+                                render: function(data, type, row) {
+                                    return escapeHtml(data);
+                                }
+                            },
+                            {
+                                data: 'data',
+                                render: function(data, type, row) {
+                                    if (typeof data !== 'object' || data === null) {
+                                        return escapeHtml(String(data));
+                                    }
+                                    return escapeHtml(data.message || data.field_0 || JSON.stringify(data).substring(0, 100) + '...');
+                                }
+                            },
+                            {
+                                data: 'original_key',
+                                render: function(data, type, row) {
+                                    return `<button class="btn btn-danger btn-sm delete-btn" data-key="${escapeHtml(data)}">Delete</button>`;
+                                },
+                                orderable: false
+                            }
+                        ],
+                        "bDestroy": true
+                    });
+
+                    // Add event listener for opening and closing details
+                    $('#alarms-table tbody').off('click', 'td.details-control').on('click', 'td.details-control', function () {
+                        var tr = $(this).closest('tr');
+                        var row = otherTable.row(tr);
+
+                        if (row.child.isShown()) {
+                            // This row is already open - close it
+                            row.child.hide();
+                            tr.removeClass('details');
+                        } else {
+                            // Open this row
+                            const rowData = row.data();
+                            const formattedData = JSON.stringify(rowData.data, null, 2);
+                            row.child($('<pre>').text(formattedData)).show();
+                            tr.addClass('details');
+                        }
+                    });
+                } else {
+                     container.hide();
+                }
+            };
+
+            const deleteAlarm = (key) => {
+                if (!confirm(`Are you sure you want to delete the alarm for ${key}?`)) {
+                    return;
+                }
+                $.ajax({
+                    url: `/api/alarms/${key}`,
+                    method: 'DELETE',
+                    success: function() {
+                        fetchAlarms();
+                    },
+                    error: function() {
+                        alert('Failed to delete alarm.');
+                    }
+                });
+            };
+
+            $('#threat-alarms-table, #alarms-table').on('click', '.delete-btn', function(event) {
+                event.stopPropagation();
+                const key = $(this).data('key');
+                deleteAlarm(key);
             });
 
             function escapeHtml(unsafe) {
@@ -291,36 +292,34 @@
                     .replace(/"/g, "&quot;")
                     .replace(/'/g, "&#039;");
             }
-
-            fetchAlarms();
-
-            document.getElementById('refreshBtn').addEventListener('click', fetchAlarms);
-
-            document.getElementById('logoutBtn').addEventListener('click', () => {
+            
+            $('#refreshBtn').on('click', fetchAlarms);
+            
+            $('#logoutBtn').on('click', () => {
                 window.location.href = '/logout';
             });
 
-            const deleteAllAlarms = async () => {
+            const deleteAllAlarms = () => {
                 if (!confirm('Are you sure you want to delete ALL alarms? This action cannot be undone.')) {
                     return;
                 }
-                try {
-                    const response = await fetch('/api/alarms', {
-                        method: 'DELETE',
-                    });
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                $.ajax({
+                    url: '/api/alarms',
+                    method: 'DELETE',
+                    success: function() {
+                        fetchAlarms(); // Refresh the table
+                    },
+                    error: function() {
+                        alert('Failed to delete all alarms.');
                     }
-                    fetchAlarms(); // Refresh the table
-                } catch (error) {
-                    console.error('Delete All error:', error);
-                    alert('Failed to delete all alarms.');
-                }
+                });
             };
 
-            document.getElementById('deleteAllBtn').addEventListener('click', deleteAllAlarms);
+            $('#deleteAllBtn').on('click', deleteAllAlarms);
+
+            // Initial fetch
+            fetchAlarms();
         });
     </script>
-
 </body>
 </html>
