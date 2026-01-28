@@ -74,12 +74,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Confi
 // AuthMiddleware checks for a valid session cookie
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Skip authentication for API routes handled by APIKeyAuthMiddleware
-		if strings.HasPrefix(r.URL.Path, "/api/") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		cookie, err := r.Cookie(sessionCookieName)
 		if err != nil {
 			if err == http.ErrNoCookie {
@@ -181,5 +175,45 @@ func BearerAuthMiddleware(next http.HandlerFunc, appConfig config.Config) http.H
 		}
 
 		next.ServeHTTP(w, r)
+	}
+}
+
+// APIAuthMiddleware checks for a valid Bearer token or a valid session cookie.
+// It is intended for use on API endpoints that can be accessed by both API clients and the web UI.
+func APIAuthMiddleware(next http.HandlerFunc, appConfig config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// First, check for a Bearer token
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token := parts[1]
+				if appConfig.API.BearerToken != "" && token == appConfig.API.BearerToken {
+					// Valid Bearer token found, proceed
+					next.ServeHTTP(w, r)
+					return
+				}
+				// Invalid Bearer token
+				http.Error(w, "Unauthorized: Invalid Bearer token", http.StatusUnauthorized)
+				return
+			}
+		}
+
+		// If no Bearer token, check for a session cookie
+		cookie, err := r.Cookie(sessionCookieName)
+		if err == nil {
+			sessionMutex.Lock()
+			expiry, ok := sessionTokens[cookie.Value]
+			sessionMutex.Unlock()
+
+			if ok && time.Now().Before(expiry) {
+				// Valid session cookie found, proceed
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// No valid authentication method found
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
 }

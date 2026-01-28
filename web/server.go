@@ -23,13 +23,13 @@ func StartServer(rdb *redis.RedisClient, appConfig config.Config) {
 	})
 
 	// API routes
-	mux.HandleFunc("/api/data", BearerAuthMiddleware(getAllRedisDataHandler(rdb), appConfig))
+	mux.HandleFunc("/api/data", APIAuthMiddleware(getAllRedisDataHandler(rdb), appConfig))
 
 	// Protected web UI routes
 	mux.HandleFunc("/logout", LogoutHandler) // Add logout handler
 	mux.HandleFunc("/", AuthMiddleware(serveHome(rdb)))
-mux.HandleFunc("/api/alarms", AuthMiddleware(alarmsHandler(rdb, appConfig)))
-	mux.HandleFunc("/api/alarms/", AuthMiddleware(alarmsHandler(rdb, appConfig))) // For DELETE requests with key
+	mux.HandleFunc("/api/alarms", APIAuthMiddleware(alarmsHandler(rdb, appConfig), appConfig))
+	mux.HandleFunc("/api/alarms/", APIAuthMiddleware(alarmsHandler(rdb, appConfig), appConfig)) // For DELETE requests with key
 
 	addr := fmt.Sprintf(":%d", appConfig.Web.Port)
 	if appConfig.Web.CertFile != "" && appConfig.Web.KeyFile != "" {
