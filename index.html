@@ -79,8 +79,8 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>TAG</th>
-                                <th>Alarm Message</th>
+                                <th>Tag</th>
+                                <th>Message</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -129,7 +129,7 @@
 
                 for (const key in alarms) {
                     const alarmData = alarms[key];
-                    if (typeof alarmData === 'object' && alarmData !== null && alarmData.tag === 'Insights') {
+                    if (typeof alarmData === 'object' && alarmData !== null && alarmData.tag && alarmData.tag.toUpperCase() === 'INSIGHTS') {
                         threatAlarms[key] = { ...alarmData, original_key: key };
                     } else {
                         otherAlarms[key] = { data: alarmData, original_key: key };
@@ -160,7 +160,10 @@
                     const headers = Array.from(headerSet);
 
                     let thead = '<tr><th></th>'; // Add empty header for details control
-                    headers.forEach(header => thead += `<th>${header}</th>`);
+                    headers.forEach(header => {
+                        const capitalizedHeader = header.charAt(0).toUpperCase() + header.slice(1);
+                        thead += `<th>${capitalizedHeader}</th>`;
+                    });
                     thead += '<th>Action</th></tr>';
                     $('#threat-alarms-table thead').html(thead);
 
@@ -177,7 +180,15 @@
                                 data: null,
                                 defaultContent: ''
                             },
-                            ...headers.map(header => ({ data: header, defaultContent: 'N/A' })),
+                            ...headers.map(header => {
+                                const columnDef = { data: header, defaultContent: 'N/A' };
+                                if (header.toUpperCase() === 'TAG') {
+                                    columnDef.render = function(data, type, row) {
+                                        return data ? escapeHtml(String(data).toUpperCase()) : 'N/A';
+                                    }
+                                }
+                                return columnDef;
+                            }),
                             {
                                 data: 'original_key',
                                 render: function(data, type, row) {
@@ -233,7 +244,8 @@
                                 data: 'data.tag', 
                                 defaultContent: 'N/A',
                                 render: function(data, type, row) {
-                                    return escapeHtml(data);
+                                    const upperTag = data ? String(data).toUpperCase() : 'N/A';
+                                    return escapeHtml(upperTag);
                                 }
                             },
                                                         {
