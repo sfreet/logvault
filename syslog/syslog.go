@@ -91,43 +91,7 @@ func processLogs(rdb *redis.RedisClient, appConfig config.Config, channel syslog
 		}
 
 		switch strings.ToUpper(tag) {
-		case "ALARM", "CLEAR":
-			parts := strings.SplitN(message, " ", 2)
-			if len(parts) < 1 {
-				continue
-			}
-			key := alarmPrefix + parts[0]
-
-			if strings.ToUpper(tag) == "ALARM" {
-				data := map[string]string{"tag": tag, "message": message}
-				jsonBytes, err := json.Marshal(data)
-				if err != nil {
-					log.Printf("Failed to marshal ALARM data: %v", err)
-					continue
-				}
-				jsonString := string(jsonBytes)
-
-				if err := rdb.Set(key, jsonString, 0); err != nil {
-					log.Printf("Failed to SET key %s: %v", key, err)
-				} else {
-					log.Printf("ALARM: Set key %s", key)
-					if appConfig.ExternalAPI.Enabled && shouldTriggerNotifier(tag, appConfig.ExternalAPI.TriggerTags) {
-						go notifier.CallExternalAPI(appConfig, map[string]string{"key": key, "message": jsonString, "status": "ALARM"})
-					}
-				}
-			} else { // CLEAR
-				if err := rdb.Del(key); err != nil {
-					log.Printf("Failed to DEL key %s: %v", key, err)
-				} else {
-					log.Printf("CLEAR: Deleted key %s", key)
-					if appConfig.ExternalAPI.Enabled {
-						go notifier.CallExternalAPI(appConfig, map[string]string{"key": key, "message": message, "status": "CLEAR"})
-					}
-				}
-			}
 		case "INSIGHTS":
-			parseAndSaveAsJSON(rdb, message, appConfig, tag)
-		case "THREAT":
 			parseThreatMessageAndSave(rdb, message, appConfig, tag)
 		default:
 			saveWithRandomKey(rdb, message, tag)
@@ -199,7 +163,7 @@ func saveWithRandomKey(rdb *redis.RedisClient, message string, tag string) {
 		return
 	}
 	key := alarmPrefix + hex.EncodeToString(randomBytes)
-	
+
 	data := map[string]string{"tag": tag, "message": message}
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {

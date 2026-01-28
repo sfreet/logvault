@@ -130,7 +130,7 @@
 
                 for (const key in alarms) {
                     const alarmData = alarms[key];
-                    if (typeof alarmData === 'object' && alarmData !== null && alarmData.tag === 'THREAT') {
+                    if (typeof alarmData === 'object' && alarmData !== null && alarmData.tag === 'Insights') {
                         threatAlarms[key] = { ...alarmData, original_key: key };
                     } else {
                         otherAlarms[key] = { data: alarmData, original_key: key };
