@@ -80,7 +80,6 @@
                             <tr>
                                 <th></th>
                                 <th>TAG</th>
-                                <th>Key</th>
                                 <th>Alarm Message</th>
                                 <th>Action</th>
                             </tr>
@@ -160,7 +159,7 @@
                     });
                     const headers = Array.from(headerSet);
 
-                    let thead = '<tr>';
+                    let thead = '<tr><th></th>'; // Add empty header for details control
                     headers.forEach(header => thead += `<th>${header}</th>`);
                     thead += '<th>Action</th></tr>';
                     $('#threat-alarms-table thead').html(thead);
@@ -169,9 +168,15 @@
                         $('#threat-alarms-table').DataTable().clear().destroy();
                     }
 
-                    $('#threat-alarms-table').DataTable({
+                    const threatTable = $('#threat-alarms-table').DataTable({
                         data: threatAlarms,
                         columns: [
+                            {
+                                className: 'details-control',
+                                orderable: false,
+                                data: null,
+                                defaultContent: ''
+                            },
                             ...headers.map(header => ({ data: header, defaultContent: 'N/A' })),
                             {
                                 data: 'original_key',
@@ -183,6 +188,24 @@
                         ],
                         responsive: true,
                         "bDestroy": true
+                    });
+
+                    // Add event listener for opening and closing details
+                    $('#threat-alarms-table tbody').off('click', 'td.details-control').on('click', 'td.details-control', function () {
+                        var tr = $(this).closest('tr');
+                        var row = threatTable.row(tr);
+
+                        if (row.child.isShown()) {
+                            // This row is already open - close it
+                            row.child.hide();
+                            tr.removeClass('details');
+                        } else {
+                            // Open this row
+                            const rowData = row.data();
+                            const formattedData = JSON.stringify(rowData, null, 2);
+                            row.child($('<pre>').text(formattedData)).show();
+                            tr.addClass('details');
+                        }
                     });
                 } else {
                     container.hide();
@@ -213,13 +236,7 @@
                                     return escapeHtml(data);
                                 }
                             },
-                            { 
-                                data: 'original_key',
-                                render: function(data, type, row) {
-                                    return escapeHtml(data);
-                                }
-                            },
-                            {
+                                                        {
                                 data: 'data',
                                 render: function(data, type, row) {
                                     if (typeof data !== 'object' || data === null) {

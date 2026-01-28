@@ -85,11 +85,6 @@ func processLogs(rdb *redis.RedisClient, appConfig config.Config, channel syslog
 			continue
 		}
 
-		if tag == "" {
-			saveWithRandomKey(rdb, message, "NONE")
-			continue
-		}
-
 		switch strings.ToUpper(tag) {
 		case "INSIGHTS":
 			parseThreatMessageAndSave(rdb, message, appConfig, tag)
