@@ -55,6 +55,7 @@ func shouldTriggerNotifier(tag string, triggerTags string) bool {
 
 func processLogs(rdb *redis.RedisClient, appConfig config.Config, channel syslog.LogPartsChannel) {
 	for logParts := range channel {
+		log.Printf("DEBUG: Received raw syslog parts: %+v", logParts)
 		tag, message := "", "" // Declare once
 
 		tagVal, ok := logParts["tag"]
