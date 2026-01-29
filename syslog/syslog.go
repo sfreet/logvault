@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv" // Added for string to int conversion
 	"strings"
+	"time"    // Added for time formatting
 
 	"gopkg.in/mcuadros/go-syslog.v2"
 
@@ -111,6 +113,7 @@ func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig
 	}
 
 	// Split the message by the backtick delimiter
+	message = strings.Trim(message, "`")
 	values := strings.Split(message, "`")
 
 	// Create a map to hold the structured data
@@ -129,6 +132,17 @@ func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig
 	// Add any extra fields from the log message
 	if len(values) > len(fields) {
 		jsonData["extra_data"] = strings.Join(values[len(fields):], "`")
+	}
+
+	// Format DetectTime if it's a Unix timestamp
+	if dtVal, ok := jsonData["DetectTime"].(string); ok && dtVal != "" {
+		if timestamp, err := strconv.ParseInt(dtVal, 10, 64); err == nil {
+			// Assuming milliseconds, convert to seconds and nanoseconds
+			t := time.Unix(timestamp/1000, (timestamp%1000)*int64(time.Millisecond))
+			jsonData["DetectTimeFormatted"] = t.Format("2006-01-02 15:04:05 MST") // Example format
+		} else {
+			log.Printf("Failed to parse DetectTime '%s': %v", dtVal, err)
+		}
 	}
 
 	// Marshal the map into a JSON string
