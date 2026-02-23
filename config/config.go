@@ -23,6 +23,7 @@ type Config struct {
 		Secret   string `mapstructure:"secret"`
 		CertFile string `mapstructure:"cert_file"`
 		KeyFile  string `mapstructure:"key_file"`
+		CORSOrigin string `mapstructure:"cors_origin"`
 	} `mapstructure:"web"`
 	API struct {
 		BearerToken string `mapstructure:"bearer_token"`

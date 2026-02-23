@@ -60,8 +60,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Confi
 			Path:     "/",
 			Expires:  time.Now().Add(sessionExpiry),
 			HttpOnly: true,  // Important for security
-			Secure:   false, // Set to true in production with HTTPS
-			SameSite: http.SameSiteLaxMode,
+			Secure:   true,
+			SameSite: http.SameSiteNoneMode,
 		})
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
@@ -96,8 +96,8 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				Path:     "/",
 				MaxAge:   -1, // Delete cookie
 				HttpOnly: true,
-				Secure:   false, // Set to true in production with HTTPS
-				SameSite: http.SameSiteLaxMode,
+				Secure:   true,
+				SameSite: http.SameSiteNoneMode,
 			})
 			http.Redirect(w, r, "/login.html", http.StatusFound)
 			return
@@ -128,8 +128,8 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   -1, // Delete cookie
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
-		SameSite: http.SameSiteLaxMode,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	http.Redirect(w, r, "/login.html", http.StatusFound)

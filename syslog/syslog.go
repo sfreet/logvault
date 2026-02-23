@@ -137,9 +137,15 @@ func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig
 	// Format DetectTime if it's a Unix timestamp
 	if dtVal, ok := jsonData["DetectTime"].(string); ok && dtVal != "" {
 		if timestamp, err := strconv.ParseInt(dtVal, 10, 64); err == nil {
-			// Assuming milliseconds, convert to seconds and nanoseconds
-			t := time.Unix(timestamp/1000, (timestamp%1000)*int64(time.Millisecond))
-			jsonData["DetectTimeFormatted"] = t.Format("2006-01-02 15:04:05 MST") // Example format
+			// Load KST location
+			loc, err := time.LoadLocation("Asia/Seoul")
+			if err != nil {
+				log.Printf("Failed to load KST location, falling back to UTC: %v", err)
+				loc = time.UTC
+			}
+			// Assuming milliseconds, convert to KST time
+			t := time.Unix(timestamp/1000, (timestamp%1000)*int64(time.Millisecond)).In(loc)
+			jsonData["DetectTime"] = t.Format("2006-01-02 15:04:05")
 		} else {
 			log.Printf("Failed to parse DetectTime '%s': %v", dtVal, err)
 		}
