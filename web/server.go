@@ -4,18 +4,38 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"logvault/config"
 	"logvault/redis"
 )
 
+// MimeTypeMiddleware sets the correct Content-Type for static assets.
+func MimeTypeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("STATIC: Request for %s", r.URL.Path)
+		if strings.HasSuffix(r.URL.Path, ".css") {
+			w.Header().Set("Content-Type", "text/css")
+			log.Printf("STATIC: Set Content-Type to text/css for %s", r.URL.Path)
+		} else if strings.HasSuffix(r.URL.Path, ".js") {
+			w.Header().Set("Content-Type", "application/javascript")
+			log.Printf("STATIC: Set Content-Type to application/javascript for %s", r.URL.Path)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // StartServer initializes and starts the web server
 func StartServer(rdb *redis.RedisClient, appConfig config.Config) {
 	mux := http.NewServeMux()
 
+	// Serve static files from the client directory
+	fs := http.FileServer(http.Dir("./client"))
+	mux.Handle("/static/", MimeTypeMiddleware(http.StripPrefix("/static/", fs)))
+
 	// Public routes
 	mux.HandleFunc("/login.html", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "login.html")
+		http.ServeFile(w, r, "./client/login.html")
 	})
 
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {

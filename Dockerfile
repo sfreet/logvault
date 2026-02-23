@@ -22,7 +22,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # Copy the static web files
-COPY index.html login.html ./
+COPY client ./client
 
 # Copy the built binary from the builder stage
 COPY --from=builder /logvault .

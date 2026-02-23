@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logvault Alarms</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <style>
         body {
             background-color: #f8f9fa;
@@ -26,11 +26,11 @@
             background-color: #fdfdfd;
         }
         td.details-control {
-            background: url('https://datatables.net/examples/resources/details_open.png') no-repeat center center;
+            background: url('/static/images/details_open.png') no-repeat center center;
             cursor: pointer;
         }
         tr.details td.details-control {
-            background: url('https://datatables.net/examples/resources/details_close.png') no-repeat center center;
+            background: url('/static/images/details_close.png') no-repeat center center;
         }
         pre {
             white-space: pre-wrap;
@@ -92,9 +92,10 @@
         <p id="loading">Loading alarms...</p>
     </main>
 
-    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="/static/js/jquery-3.7.0.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/jquery.dataTables.min.js"></script>
+    <script src="/static/js/dataTables.bootstrap5.min.js"></script>
     <script>
         $(document).ready(function() {
             $.ajaxSetup({

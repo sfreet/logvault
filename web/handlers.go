@@ -25,7 +25,7 @@ func serveHome(rdb *redis.RedisClient) http.HandlerFunc {
 		}
 
 		// Get the absolute path for index.html
-		absPath, err := filepath.Abs("index.html")
+		absPath, err := filepath.Abs("./client/index.html")
 		if err != nil {
 			log.Printf("Error getting absolute path for index.html: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
