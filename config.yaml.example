@@ -8,7 +8,7 @@ syslog:
 
 # Redis settings
 redis:
-  address: "localhost:6379"
+  address: "127.0.0.1:6379"
   password: ""
   db: 0
 
@@ -18,6 +18,9 @@ web:
   secret: "your_secret_password" # Add a secret for web UI login
   cert_file: "" # Path to TLS certificate file (e.g., server.crt)
   key_file: "" # Path to TLS key file (e.g., server.key)
+  allowed_ips: [] # Optional list of allowed source IPs/CIDRs for the Web UI, e.g. ["10.0.0.10", "10.0.0.0/24"]
+  cors_origin: "*" # Set the Access-Control-Allow-Origin header. Use "*" to allow all origins, or specify a single origin like "http://localhost:3000".
+
 
 # API settings
 api:

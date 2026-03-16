@@ -19,11 +19,12 @@ type Config struct {
 		DB       int    `mapstructure:"db"`
 	} `mapstructure:"redis"`
 	Web struct {
-		Port     int    `mapstructure:"port"`
-		Secret   string `mapstructure:"secret"`
-		CertFile string `mapstructure:"cert_file"`
-		KeyFile  string `mapstructure:"key_file"`
-		CORSOrigin string `mapstructure:"cors_origin"`
+		Port       int      `mapstructure:"port"`
+		Secret     string   `mapstructure:"secret"`
+		CertFile   string   `mapstructure:"cert_file"`
+		KeyFile    string   `mapstructure:"key_file"`
+		AllowedIPs []string `mapstructure:"allowed_ips"`
+		CORSOrigin string   `mapstructure:"cors_origin"`
 	} `mapstructure:"web"`
 	API struct {
 		BearerToken string `mapstructure:"bearer_token"`
@@ -33,7 +34,7 @@ type Config struct {
 		URL         string `mapstructure:"url"`
 		Method      string `mapstructure:"method"`
 		BearerToken string `mapstructure:"bearer_token"`
-			TriggerTags  string `mapstructure:"trigger_tags"`
+		TriggerTags string `mapstructure:"trigger_tags"`
 	} `mapstructure:"external_api"`
 }
 
@@ -50,9 +51,10 @@ func LoadConfig() (Config, error) {
 	// Set default values
 	viper.SetDefault("web.port", 8080)
 	viper.SetDefault("web.secret", "") // Default empty secret
+	viper.SetDefault("web.allowed_ips", []string{})
 	viper.SetDefault("syslog.port", 514)
 	viper.SetDefault("syslog.host", "0.0.0.0")
-	viper.SetDefault("redis.address", "localhost:6379")
+	viper.SetDefault("redis.address", "127.0.0.1:6379")
 	viper.SetDefault("api.bearer_token", "") // Default empty bearer token
 	viper.SetDefault("external_api.enabled", false)
 	viper.SetDefault("external_api.url", "")

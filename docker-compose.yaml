@@ -1,6 +1,5 @@
 # Docker Compose file for Logvault
 # Version '3.8' is a good modern choice.
-version: '3.8'
 
 services:
   # The Logvault application service
@@ -9,14 +8,10 @@ services:
     image: logvault:latest
     container_name: logvault-app
     restart: always
+    network_mode: host
     # Depends on Redis being available
     depends_on:
       - redis
-    ports:
-      # Map host port 8080 to container port 8080 for the web UI
-      - "8080:8080"
-      # Map host port 514 to container port 514 for Syslog (UDP)
-      - "514:514/udp"
     volumes:
       # Mount the configuration file from the host into the container
       # This allows you to change config without rebuilding the image.
@@ -32,6 +27,9 @@ services:
     image: redis:7-alpine
     container_name: logvault-redis
     restart: always
+    ports:
+      # Publish Redis only on the host loopback interface so the host-networked app can reach it
+      - "127.0.0.1:6379:6379"
     volumes:
       # This named volume persists Redis data across container restarts.
       - redis-data:/data

@@ -52,14 +52,15 @@ func StartServer(rdb *redis.RedisClient, appConfig config.Config) {
 	mux.HandleFunc("/api/alarms/", APIAuthMiddleware(alarmsHandler(rdb, appConfig), appConfig)) // For DELETE requests with key
 
 	addr := fmt.Sprintf(":%d", appConfig.Web.Port)
+	handler := ipAllowlistMiddleware(corsMiddleware(mux, []string{appConfig.Web.CORSOrigin}, true, true), appConfig)
 	if appConfig.Web.CertFile != "" && appConfig.Web.KeyFile != "" {
 		log.Printf("Web UI server starting with HTTPS. Listening on https://0.0.0.0:%d", appConfig.Web.Port)
-		if err := http.ListenAndServeTLS(addr, appConfig.Web.CertFile, appConfig.Web.KeyFile, corsMiddleware(mux, []string{appConfig.Web.CORSOrigin}, true, true)); err != nil {
+		if err := http.ListenAndServeTLS(addr, appConfig.Web.CertFile, appConfig.Web.KeyFile, handler); err != nil {
 			log.Fatalf("Web server failed: %v", err)
 		}
 	} else {
 		log.Printf("Web UI server starting with HTTP. Listening on http://0.0.0.0:%d", appConfig.Web.Port)
-		if err := http.ListenAndServe(addr, corsMiddleware(mux, []string{appConfig.Web.CORSOrigin}, true, true)); err != nil {
+		if err := http.ListenAndServe(addr, handler); err != nil {
 			log.Fatalf("Web server failed: %v", err)
 		}
 	}

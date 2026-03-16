@@ -14,6 +14,7 @@ It's designed to be a lightweight solution for scenarios where you need to track
 - **Real-time Web UI**: A clean web interface that automatically refreshes to show the current list of active alarms.
 - **HTTPS Support**: The web server can serve traffic over HTTPS if a TLS certificate and key are provided.
 - **Web UI Authentication**: Secure your web interface with a configurable secret password.
+- **Web UI IP Allowlist**: Restrict Web UI and session-based API access to specific source IPs or CIDR ranges.
 - **Logout Functionality**: Allows users to securely log out of the web UI.
 - **Manual Deletion**: Allows manual deletion of alarms directly from the web UI.
 - **Configuration**: Easily configurable via a `config.yaml` file.
@@ -44,7 +45,7 @@ Logvault can be run in a Docker container or built from source.
         ```
 
     2.  **Configure the application:**
-        Rename `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set a `secret` for the web UI and a `bearer_token` for the API.
+        Rename `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set a `secret` for the web UI and a `bearer_token` for the API. If you want to limit administrator access, set `web.allowed_ips` to the allowed public source IPs or CIDRs.
         ```sh
         cp config.yaml.example config.yaml
         # Now edit config.yaml
@@ -55,6 +56,7 @@ Logvault can be run in a Docker container or built from source.
         docker-compose up --build
         ```
         The application will be available at `http://localhost:8080`.
+        In the default Compose setup, the Logvault app uses host networking so it can see the real client source IP, while Redis is published only on `127.0.0.1:6379`.
 
 2.  **Building and Running Docker Image Manually**
 
@@ -125,6 +127,22 @@ Once the application is running, open your web browser and navigate to the appro
     **https://localhost:8080**
 
 You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms and auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
+
+If you want to restrict administrator access by source IP, configure `web.allowed_ips` with individual IP addresses or CIDR ranges. When this list is set, only matching source IPs can access the Web UI and session-authenticated API endpoints.
+
+**Example:**
+```yaml
+web:
+  port: 8080
+  secret: "your_secret_password"
+  cert_file: "server.crt"
+  key_file: "server.key"
+  allowed_ips:
+    - "203.0.113.24"
+    - "198.51.100.0/24"
+```
+
+In the provided Docker Compose configuration, this allowlist is evaluated against the real client source IP because the web app runs with `network_mode: host`. Redis remains bound to `127.0.0.1:6379` on the host so it is not exposed externally.
 
 ### REST API
 
