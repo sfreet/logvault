@@ -17,6 +17,11 @@
             font-size: 1.25rem;
             font-weight: 500;
         }
+        #userInfo {
+            margin-right: 0.75rem;
+            color: #495057;
+            font-weight: 500;
+        }
         #loading {
             text-align: center;
             padding: 2rem;
@@ -47,6 +52,7 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="#">Logvault Alarms</a>
             <div>
+                <span id="userInfo"></span>
                 <button id="refreshBtn" class="btn btn-primary">Refresh</button>
                 <button id="deleteAllBtn" class="btn btn-danger">Delete All</button>
                 <button id="logoutBtn" class="btn btn-secondary">Logout</button>
@@ -100,8 +106,39 @@
         $(document).ready(function() {
             $.ajaxSetup({
                 xhrFields: { withCredentials: true }
-            });            
+            });
+            const adminRole = 'admin';
             const loading = $('#loading');
+            const userInfo = $('#userInfo');
+            let currentUserRole = adminRole;
+
+            const canManageAlarms = () => currentUserRole === adminRole;
+
+            const deleteActionHtml = (key) => {
+                if (!canManageAlarms()) {
+                    return '<span class="text-muted">Read only</span>';
+                }
+                return `<button class="btn btn-danger btn-sm delete-btn" data-key="${escapeHtml(key)}">Delete</button>`;
+            };
+
+            const applyRolePermissions = (session) => {
+                currentUserRole = session.role || adminRole;
+                userInfo.text(`${session.username} (${currentUserRole})`);
+                $('#deleteAllBtn').toggle(canManageAlarms());
+            };
+
+            const fetchSession = () => {
+                return $.ajax({
+                    url: '/api/session',
+                    method: 'GET',
+                    success: function(session) {
+                        applyRolePermissions(session);
+                    },
+                    error: function() {
+                        window.location.href = '/login.html';
+                    }
+                });
+            };
 
             // Destroy existing DataTables instances if they exist
             if ($.fn.DataTable.isDataTable('#threat-alarms-table')) {
@@ -196,7 +233,7 @@
                             {
                                 data: 'original_key',
                                 render: function(data, type, row) {
-                                    return `<button class="btn btn-danger btn-sm delete-btn" data-key="${escapeHtml(data)}">Delete</button>`;
+                                    return deleteActionHtml(data);
                                 },
                                 orderable: false
                             }
@@ -264,7 +301,7 @@
                             {
                                 data: 'original_key',
                                 render: function(data, type, row) {
-                                    return `<button class="btn btn-danger btn-sm delete-btn" data-key="${escapeHtml(data)}">Delete</button>`;
+                                    return deleteActionHtml(data);
                                 },
                                 orderable: false
                             }
@@ -295,6 +332,10 @@
             };
 
             const deleteAlarm = (key) => {
+                if (!canManageAlarms()) {
+                    alert('This account is read only.');
+                    return;
+                }
                 if (!confirm(`Are you sure you want to delete the alarm for ${key}?`)) {
                     return;
                 }
@@ -333,6 +374,10 @@
             });
 
             const deleteAllAlarms = () => {
+                if (!canManageAlarms()) {
+                    alert('This account is read only.');
+                    return;
+                }
                 if (!confirm('Are you sure you want to delete ALL alarms? This action cannot be undone.')) {
                     return;
                 }
@@ -351,7 +396,7 @@
             $('#deleteAllBtn').on('click', deleteAllAlarms);
 
             // Initial fetch
-            fetchAlarms();
+            fetchSession().done(fetchAlarms);
         });
     </script>
 </body>

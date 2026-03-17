@@ -50,6 +50,10 @@ func alarmsHandler(rdb *redis.RedisClient, appConfig config.Config) http.Handler
 		case http.MethodGet:
 			getAlarms(w, r, rdb)
 		case http.MethodDelete:
+			if !canDeleteAlarms(r, appConfig) {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
 			// If the path is just /api/alarms, delete all.
 			// Otherwise, it's /api/alarms/{key}, so delete one.
 			if r.URL.Path == "/api/alarms" || r.URL.Path == "/api/alarms/" {
@@ -61,6 +65,17 @@ func alarmsHandler(rdb *redis.RedisClient, appConfig config.Config) http.Handler
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	}
+}
+
+func canDeleteAlarms(r *http.Request, appConfig config.Config) bool {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		return len(parts) == 2 && parts[0] == "Bearer" && appConfig.API.BearerToken != "" && parts[1] == appConfig.API.BearerToken
+	}
+
+	session, ok := currentSession(r)
+	return ok && session.Role == roleAdmin
 }
 
 func deleteAllAlarms(w http.ResponseWriter, r *http.Request, rdb *redis.RedisClient, appConfig config.Config) {

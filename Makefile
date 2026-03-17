@@ -9,14 +9,26 @@ GORUN=$(GOCMD) run
 
 # Binary Name
 BINARY_NAME=logvault
+HASH_TOOL_BINARY=bin/generate-password-hash
+CONFIG_TOOL_BINARY=bin/configure-web-user
+DIST_DIR=dist
+DIST_WORKDIR=$(DIST_DIR)/logvault
 
-.PHONY: all build run clean test help docker docker-build package
+.PHONY: all build build-hash-tool build-config-tool run clean test help docker docker-build package
 
 all: build
 
 # Build the application binary
 build:
 	CGO_ENABLED=0 GOOS=linux $(GOBUILD) -a -ldflags="-s -w" -o $(BINARY_NAME) .
+
+build-hash-tool:
+	@mkdir -p bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$$($(GOCMD) env GOARCH) $(GOBUILD) -a -ldflags="-s -w" -o $(HASH_TOOL_BINARY) ./cmd/generate-password-hash
+
+build-config-tool:
+	@mkdir -p bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$$($(GOCMD) env GOARCH) $(GOBUILD) -a -ldflags="-s -w" -o $(CONFIG_TOOL_BINARY) ./cmd/configure-web-user
 
 # Build the docker image
 docker-build: ## Build the main logvault docker image
@@ -35,35 +47,51 @@ run:
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
+	rm -f $(HASH_TOOL_BINARY)
+	rm -f $(CONFIG_TOOL_BINARY)
 	rm -f logvault.tar.gz ## Remove the offline package tarball
+	rm -f logvault-dist.tar.gz
+	rm -rf $(DIST_DIR)
 
 # Run tests (not yet implemented)
 test:
 	$(GOTEST) ./...
 
 # Create the offline deployment package
-package: docker-build ## Create the offline deployment package (logvault.tar.gz)
+package: docker-build build-hash-tool build-config-tool ## Create the offline deployment package (logvault.tar.gz)
 	@echo "Creating offline package: logvault.tar.gz"
-	@mkdir -p logvault_package
+	@mkdir -p logvault_package/scripts logvault_package/bin
 	@echo "--> Saving Docker images..."
 	@docker save -o logvault_package/logvault.tar logvault:latest
 	@docker save -o logvault_package/redis.tar redis:7-alpine
 	@echo "--> Copying configuration and scripts..."
 	@cp docker-compose.yaml docker-compose.sh server.crt server.key logvault_package/
-	@cp config.yaml.example logvault_package/config.yaml
+	@cp config.yaml.example logvault_package/config.yaml.example
+	@cp scripts/generate_password_hash.sh logvault_package/scripts/
+	@cp scripts/configure_web_user.sh logvault_package/scripts/
+	@cp $(HASH_TOOL_BINARY) logvault_package/bin/
+	@cp $(CONFIG_TOOL_BINARY) logvault_package/bin/
 	@echo '#!/bin/bash' > logvault_package/load_images.sh
 	@echo 'echo "Loading Docker images..."' >> logvault_package/load_images.sh
 	@echo 'docker load -i logvault.tar' >> logvault_package/load_images.sh
 	@echo 'docker load -i redis.tar' >> logvault_package/load_images.sh
 	@echo 'echo "Images loaded."' >> logvault_package/load_images.sh
-	@chmod +x logvault_package/load_images.sh
-	@echo 'Offline Package for Logvault\n\nInstructions:\n1. Un-tar this package: tar -xzvf logvault.tar.gz\n2. Go into the '\''logvault_package'\'' directory: cd logvault_package\n3. Load the Docker images: ./load_images.sh\n4. Edit the '\''config.yaml'\'' file to match your environment.\n5. Make the control script executable (if it isn'\''t already): chmod +x docker-compose.sh\n6. Start the services: ./docker-compose.sh start\n\nTo stop the services: ./docker-compose.sh stop\nTo restart the services: ./docker-compose.sh restart' > logvault_package/README_OFFLINE.txt
+	@chmod +x logvault_package/load_images.sh logvault_package/scripts/generate_password_hash.sh logvault_package/scripts/configure_web_user.sh
+	@echo 'Offline Package for Logvault\n\nThis directory is the extracted offline package.\n\nInstructions:\n1. If '\''config.yaml'\'' does not exist, create it from the example:\n   cp config.yaml.example config.yaml\n2. Review and edit '\''config.yaml'\'' to match your environment.\n3. Optional: generate bcrypt password hashes with ./scripts/generate_password_hash.sh --password '\''your_secret'\''\n4. Optional: add or update a web user with ./scripts/configure_web_user.sh --config ./config.yaml --username admin --password '\''your_secret'\'' --role admin\n5. Load the Docker images: ./load_images.sh\n6. Start the services: ./docker-compose.sh start\n\nUseful commands:\n- Stop the services: ./docker-compose.sh stop\n- Restart the services: ./docker-compose.sh restart\n- Reconfigure a web user: ./scripts/configure_web_user.sh --config ./config.yaml --username admin --password '\''your_secret'\'' --role admin' > logvault_package/README_OFFLINE.txt
 	@echo "--> Creating tarball..."
 	@tar -czvf logvault.tar.gz logvault_package
+	@echo "--> Creating distribution bundle..."
+	@rm -rf $(DIST_WORKDIR)
+	@mkdir -p $(DIST_WORKDIR)
+	@cp logvault.tar.gz $(DIST_WORKDIR)/
+	@cp install-logvault.sh $(DIST_WORKDIR)/
+	@chmod +x $(DIST_WORKDIR)/install-logvault.sh
+	@tar -czvf logvault-dist.tar.gz -C $(DIST_DIR) logvault
 	@echo "--> Cleaning up..."
 	@rm -rf logvault_package
 	@echo " "
 	@echo "Package logvault.tar.gz created successfully."
+	@echo "Distribution bundle created successfully: logvault-dist.tar.gz"
 
 
 # Help: Show available commands

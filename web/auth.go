@@ -10,16 +10,67 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"logvault/config"
 )
 
 const sessionCookieName = "logvault_session"
 const sessionExpiry = 24 * time.Hour // Session valid for 24 hours
+const roleAdmin = "admin"
+const roleReadOnly = "readonly"
 
 // In-memory session store (for simplicity)
 // In a production environment, use a persistent store like Redis or a database
-var sessionTokens = make(map[string]time.Time)
+type sessionData struct {
+	Username string
+	Role     string
+	Expires  time.Time
+}
+
+var sessionTokens = make(map[string]sessionData)
 var sessionMutex sync.Mutex
+
+func normalizeRole(role string) string {
+	if strings.EqualFold(role, roleReadOnly) {
+		return roleReadOnly
+	}
+	return roleAdmin
+}
+
+func getWebCredentialRole(appConfig config.Config, username, secret string) (string, bool) {
+	for _, user := range appConfig.Web.Users {
+		if user.Username == username && secretMatches(secret, user.SecretHash, user.Secret) {
+			return normalizeRole(user.Role), true
+		}
+	}
+
+	if appConfig.Web.Username != "" &&
+		username == appConfig.Web.Username &&
+		secretMatches(secret, appConfig.Web.SecretHash, appConfig.Web.Secret) {
+		return roleAdmin, true
+	}
+
+	return "", false
+}
+
+func hasConfiguredWebCredentials(appConfig config.Config) bool {
+	if len(appConfig.Web.Users) > 0 {
+		for _, user := range appConfig.Web.Users {
+			if user.Username != "" && (user.SecretHash != "" || user.Secret != "") {
+				return true
+			}
+		}
+	}
+
+	return appConfig.Web.Username != "" && (appConfig.Web.SecretHash != "" || appConfig.Web.Secret != "")
+}
+
+func secretMatches(plainSecret, secretHash, legacySecret string) bool {
+	if secretHash != "" {
+		return bcrypt.CompareHashAndPassword([]byte(secretHash), []byte(plainSecret)) == nil
+	}
+	return legacySecret != "" && plainSecret == legacySecret
+}
 
 // LoginHandler handles authentication requests
 func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Config) {
@@ -29,20 +80,22 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Confi
 	}
 
 	var req struct {
-		Secret string `json:"secret"`
+		Username string `json:"username"`
+		Secret   string `json:"secret"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if appConfig.Web.Secret == "" {
-		log.Println("Warning: Web secret is not set in config.yaml. Login will always fail.")
-		http.Error(w, "Server secret not configured", http.StatusInternalServerError)
+	if !hasConfiguredWebCredentials(appConfig) {
+		log.Println("Warning: Web credentials are not set in config.yaml. Login will always fail.")
+		http.Error(w, "Server credentials not configured", http.StatusInternalServerError)
 		return
 	}
 
-	if req.Secret == appConfig.Web.Secret {
+	role, ok := getWebCredentialRole(appConfig, req.Username, req.Secret)
+	if ok {
 		token, err := generateSessionToken()
 		if err != nil {
 			log.Printf("Failed to generate session token: %v", err)
@@ -51,7 +104,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Confi
 		}
 
 		sessionMutex.Lock()
-		sessionTokens[token] = time.Now().Add(sessionExpiry)
+		sessionTokens[token] = sessionData{
+			Username: req.Username,
+			Role:     role,
+			Expires:  time.Now().Add(sessionExpiry),
+		}
 		sessionMutex.Unlock()
 
 		http.SetCookie(w, &http.Cookie{
@@ -59,15 +116,15 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, appConfig config.Confi
 			Value:    token,
 			Path:     "/",
 			Expires:  time.Now().Add(sessionExpiry),
-			HttpOnly: true,  // Important for security
+			HttpOnly: true, // Important for security
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
 		})
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Login successful", "role": role})
 	} else {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid secret"})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid username or secret"})
 	}
 }
 
@@ -85,10 +142,10 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		sessionMutex.Lock()
-		expiry, ok := sessionTokens[cookie.Value]
+		session, ok := sessionTokens[cookie.Value]
 		sessionMutex.Unlock()
 
-		if !ok || time.Now().After(expiry) {
+		if !ok || time.Now().After(session.Expires) {
 			// Invalid or expired token, clear cookie and redirect
 			http.SetCookie(w, &http.Cookie{
 				Name:     sessionCookieName,
@@ -105,7 +162,8 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		// Token is valid, renew expiry (optional, but good for user experience)
 		sessionMutex.Lock()
-		sessionTokens[cookie.Value] = time.Now().Add(sessionExpiry)
+		session.Expires = time.Now().Add(sessionExpiry)
+		sessionTokens[cookie.Value] = session
 		sessionMutex.Unlock()
 
 		next.ServeHTTP(w, r)
@@ -203,10 +261,10 @@ func APIAuthMiddleware(next http.HandlerFunc, appConfig config.Config) http.Hand
 		cookie, err := r.Cookie(sessionCookieName)
 		if err == nil {
 			sessionMutex.Lock()
-			expiry, ok := sessionTokens[cookie.Value]
+			session, ok := sessionTokens[cookie.Value]
 			sessionMutex.Unlock()
 
-			if ok && time.Now().Before(expiry) {
+			if ok && time.Now().Before(session.Expires) {
 				// Valid session cookie found, proceed
 				next.ServeHTTP(w, r)
 				return
@@ -216,4 +274,35 @@ func APIAuthMiddleware(next http.HandlerFunc, appConfig config.Config) http.Hand
 		// No valid authentication method found
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
+}
+
+func currentSession(r *http.Request) (sessionData, bool) {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return sessionData{}, false
+	}
+
+	sessionMutex.Lock()
+	session, ok := sessionTokens[cookie.Value]
+	sessionMutex.Unlock()
+
+	if !ok || time.Now().After(session.Expires) {
+		return sessionData{}, false
+	}
+
+	return session, true
+}
+
+func sessionInfoHandler(w http.ResponseWriter, r *http.Request) {
+	session, ok := currentSession(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"username": session.Username,
+		"role":     session.Role,
+	})
 }

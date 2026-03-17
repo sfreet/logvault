@@ -19,8 +19,16 @@ type Config struct {
 		DB       int    `mapstructure:"db"`
 	} `mapstructure:"redis"`
 	Web struct {
-		Port       int      `mapstructure:"port"`
-		Secret     string   `mapstructure:"secret"`
+		Port       int    `mapstructure:"port"`
+		Username   string `mapstructure:"username"`
+		Secret     string `mapstructure:"secret"`
+		SecretHash string `mapstructure:"secret_hash"`
+		Users      []struct {
+			Username   string `mapstructure:"username"`
+			Secret     string `mapstructure:"secret"`
+			SecretHash string `mapstructure:"secret_hash"`
+			Role       string `mapstructure:"role"`
+		} `mapstructure:"users"`
 		CertFile   string   `mapstructure:"cert_file"`
 		KeyFile    string   `mapstructure:"key_file"`
 		AllowedIPs []string `mapstructure:"allowed_ips"`
@@ -50,7 +58,9 @@ func LoadConfig() (Config, error) {
 
 	// Set default values
 	viper.SetDefault("web.port", 8080)
+	viper.SetDefault("web.username", "")
 	viper.SetDefault("web.secret", "") // Default empty secret
+	viper.SetDefault("web.secret_hash", "")
 	viper.SetDefault("web.allowed_ips", []string{})
 	viper.SetDefault("syslog.port", 514)
 	viper.SetDefault("syslog.host", "0.0.0.0")

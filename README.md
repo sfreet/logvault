@@ -13,7 +13,7 @@ It's designed to be a lightweight solution for scenarios where you need to track
 - **Redis Backend**: Uses Redis to store the current state of active alarms.
 - **Real-time Web UI**: A clean web interface that automatically refreshes to show the current list of active alarms.
 - **HTTPS Support**: The web server can serve traffic over HTTPS if a TLS certificate and key are provided.
-- **Web UI Authentication**: Secure your web interface with a configurable secret password.
+- **Web UI Authentication**: Secure your web interface with one or more configurable username/secret pairs, per-user roles, and bcrypt password-hash support.
 - **Web UI IP Allowlist**: Restrict Web UI and session-based API access to specific source IPs or CIDR ranges.
 - **Logout Functionality**: Allows users to securely log out of the web UI.
 - **Manual Deletion**: Allows manual deletion of alarms directly from the web UI.
@@ -45,7 +45,7 @@ Logvault can be run in a Docker container or built from source.
         ```
 
     2.  **Configure the application:**
-        Rename `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set a `secret` for the web UI and a `bearer_token` for the API. If you want to limit administrator access, set `web.allowed_ips` to the allowed public source IPs or CIDRs.
+        Copy `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set Web UI credentials with either `web.users` or the legacy `username`/`secret` pair, and set a `bearer_token` for the API. Prefer `secret_hash` over plaintext `secret`. If you want to limit administrator access, set `web.allowed_ips` to the allowed public source IPs or CIDRs.
         ```sh
         cp config.yaml.example config.yaml
         # Now edit config.yaml
@@ -126,7 +126,7 @@ Once the application is running, open your web browser and navigate to the appro
 -   **HTTPS:** If you have configured a `cert_file` and `key_file` in your `config.yaml`, the server will run on HTTPS.
     **https://localhost:8080**
 
-You will be prompted to enter the secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms and auto-refreshes every 5 seconds. You can also manually delete an alarm by clicking the "Delete" button or log out using the "Logout" button.
+You will be prompted to enter a username and secret configured in `config.yaml` to access the dashboard. The UI will display a list of all active alarms and auto-refreshes every 5 seconds. Users with the `admin` role can delete alarms. Users with the `readonly` role can view alarms but cannot delete them.
 
 If you want to restrict administrator access by source IP, configure `web.allowed_ips` with individual IP addresses or CIDR ranges. When this list is set, only matching source IPs can access the Web UI and session-authenticated API endpoints.
 
@@ -134,13 +134,51 @@ If you want to restrict administrator access by source IP, configure `web.allowe
 ```yaml
 web:
   port: 8080
-  secret: "your_secret_password"
+  users:
+    - username: "admin"
+      secret_hash: "GENERATE_WITH_SCRIPT"
+      role: "admin"
+    - username: "ops"
+      secret_hash: "GENERATE_WITH_SCRIPT"
+      role: "readonly"
   cert_file: "server.crt"
   key_file: "server.key"
   allowed_ips:
     - "203.0.113.24"
     - "198.51.100.0/24"
 ```
+
+The legacy single-user `web.username` and `web.secret` settings are still accepted for backward compatibility and behave as an `admin` account. New deployments should prefer `web.users`, and new credentials should prefer `secret_hash` over plaintext `secret`.
+
+You can generate a bcrypt hash with a command such as:
+
+```bash
+make build-hash-tool
+./scripts/generate_password_hash.sh --password 'your_secret_password'
+```
+
+The offline package created by `make package` includes the same script and a prebuilt helper binary, so no Go toolchain is required on the target system.
+
+`make package` also creates `logvault-dist.tar.gz`, which contains both `logvault.tar.gz` and `install-logvault.sh`.
+
+For on-prem installation, unpack the distribution bundle and run:
+
+```bash
+tar -xzf logvault-dist.tar.gz
+cd logvault
+./install-logvault.sh logvault.tar.gz
+```
+
+If `config.yaml` does not already exist on the target system, the installer creates it from `config.yaml.example`.
+
+You can also add or update a Web UI user directly in `config.yaml`:
+
+```bash
+make build-config-tool
+./scripts/configure_web_user.sh --config ./config.yaml --username admin --password 'your_secret_password' --role admin
+```
+
+This helper rewrites `config.yaml`, updates or appends the matching `web.users` entry, stores only `secret_hash`, and clears plaintext `secret` for that user.
 
 In the provided Docker Compose configuration, this allowlist is evaluated against the real client source IP because the web app runs with `network_mode: host`. Redis remains bound to `127.0.0.1:6379` on the host so it is not exposed externally.
 

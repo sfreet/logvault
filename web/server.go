@@ -44,6 +44,7 @@ func StartServer(rdb *redis.RedisClient, appConfig config.Config) {
 
 	// API routes
 	mux.HandleFunc("/api/data", APIAuthMiddleware(getAllRedisDataHandler(rdb), appConfig))
+	mux.HandleFunc("/api/session", AuthMiddleware(sessionInfoHandler))
 
 	// Protected web UI routes
 	mux.HandleFunc("/logout", LogoutHandler) // Add logout handler
