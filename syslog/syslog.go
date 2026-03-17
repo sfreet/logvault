@@ -8,11 +8,12 @@ import (
 	"log"
 	"strconv" // Added for string to int conversion
 	"strings"
-	"time"    // Added for time formatting
+	"time" // Added for time formatting
 
 	"gopkg.in/mcuadros/go-syslog.v2"
 
 	"logvault/config"
+	"logvault/internal/allowlist"
 	"logvault/notifier"
 	"logvault/redis"
 )
@@ -56,7 +57,16 @@ func shouldTriggerNotifier(tag string, triggerTags string) bool {
 }
 
 func processLogs(rdb *redis.RedisClient, appConfig config.Config, channel syslog.LogPartsChannel) {
+	allowed, err := allowlist.New(appConfig.Syslog.AllowedIPs)
+	if err != nil {
+		log.Fatalf("Invalid syslog.allowed_ips configuration: %v", err)
+	}
+
 	for logParts := range channel {
+		if !isAllowedSyslogSender(logParts, allowed) {
+			continue
+		}
+
 		log.Printf("DEBUG: Received raw syslog parts: %+v", logParts)
 		tag, message := "", "" // Declare once
 
@@ -95,6 +105,30 @@ func processLogs(rdb *redis.RedisClient, appConfig config.Config, channel syslog
 			saveWithRandomKey(rdb, message, tag)
 		}
 	}
+}
+
+func isAllowedSyslogSender(logParts map[string]interface{}, allowed *allowlist.IPAllowlist) bool {
+	if !allowed.Enabled() {
+		return true
+	}
+
+	client, ok := logParts["client"]
+	if !ok || client == nil {
+		return false
+	}
+
+	clientAddr, ok := client.(string)
+	if !ok {
+		return false
+	}
+
+	clientIP := allowlist.ParseRemoteHost(clientAddr)
+	if allowed.Allows(clientIP) {
+		return true
+	}
+
+	log.Printf("Denied syslog message from %q: source IP is not in syslog.allowed_ips", clientAddr)
+	return false
 }
 
 func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig config.Config, tag string) {

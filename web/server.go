@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"logvault/config"
+	"logvault/internal/allowlist"
 	"logvault/redis"
 )
 
@@ -65,6 +66,28 @@ func StartServer(rdb *redis.RedisClient, appConfig config.Config) {
 			log.Fatalf("Web server failed: %v", err)
 		}
 	}
+}
+
+func ipAllowlistMiddleware(next http.Handler, appConfig config.Config) http.Handler {
+	allowed, err := allowlist.New(appConfig.Web.AllowedIPs)
+	if err != nil {
+		log.Fatalf("Invalid web.allowed_ips configuration: %v", err)
+	}
+
+	if !allowed.Enabled() {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clientIP := allowlist.ParseRemoteHost(r.RemoteAddr)
+		if allowed.Allows(clientIP) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		log.Printf("Denied web request from %q to %s: source IP is not in web.allowed_ips", r.RemoteAddr, r.URL.Path)
+		http.Error(w, "Forbidden", http.StatusForbidden)
+	})
 }
 
 func corsMiddleware(next http.Handler, allowedOrigins []string, allowNull bool, allowCredentials bool) http.Handler {

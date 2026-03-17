@@ -45,7 +45,7 @@ Logvault can be run in a Docker container or built from source.
         ```
 
     2.  **Configure the application:**
-        Copy `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set Web UI credentials with either `web.users` or the legacy `username`/`secret` pair, and set a `bearer_token` for the API. Prefer `secret_hash` over plaintext `secret`. If you want to limit administrator access, set `web.allowed_ips` to the allowed public source IPs or CIDRs.
+        Copy `config.yaml.example` to `config.yaml` and edit it to suit your needs. You must set Web UI credentials with either `web.users` or the legacy `username`/`secret` pair, and set a `bearer_token` for the API. Prefer `secret_hash` over plaintext `secret`. If you want to limit administrator access, set `web.allowed_ips` to the allowed public source IPs or CIDRs. If you want to limit syslog senders, set `syslog.allowed_ips`.
         ```sh
         cp config.yaml.example config.yaml
         # Now edit config.yaml
@@ -130,8 +130,18 @@ You will be prompted to enter a username and secret configured in `config.yaml` 
 
 If you want to restrict administrator access by source IP, configure `web.allowed_ips` with individual IP addresses or CIDR ranges. When this list is set, only matching source IPs can access the Web UI and session-authenticated API endpoints.
 
+If you want to restrict syslog senders by source IP, configure `syslog.allowed_ips` with individual IP addresses or CIDR ranges. When this list is empty or omitted, all syslog senders are allowed.
+
 **Example:**
 ```yaml
+syslog:
+  host: "0.0.0.0"
+  port: 514
+  protocol: "udp"
+  allowed_ips:
+    - "203.0.113.10"
+    - "198.51.100.0/24"
+
 web:
   port: 8080
   users:

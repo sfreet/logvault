@@ -5,6 +5,7 @@ syslog:
   host: "0.0.0.0"
   port: 514
   protocol: "udp"
+  allowed_ips: [] # Optional list of allowed source IPs/CIDRs for syslog senders, e.g. ["10.0.0.10", "10.0.0.0/24"]
 
 # Redis settings
 redis:
@@ -27,8 +28,8 @@ web:
       secret: ""
       secret_hash: "GENERATE_WITH_SCRIPT"
       role: "readonly"
-  cert_file: "" # Path to TLS certificate file (e.g., server.crt)
-  key_file: "" # Path to TLS key file (e.g., server.key)
+  cert_file: "server.crt" # Path to TLS certificate file (e.g., server.crt)
+  key_file: "server.key" # Path to TLS key file (e.g., server.key)
   allowed_ips: [] # Optional list of allowed source IPs/CIDRs for the Web UI, e.g. ["10.0.0.10", "10.0.0.0/24"]
   cors_origin: "*" # Set the Access-Control-Allow-Origin header. Use "*" to allow all origins, or specify a single origin like "http://localhost:3000".
 

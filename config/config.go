@@ -9,9 +9,10 @@ import (
 // Config holds the application configuration
 type Config struct {
 	Syslog struct {
-		Host     string `mapstructure:"host"`
-		Port     int    `mapstructure:"port"`
-		Protocol string `mapstructure:"protocol"`
+		Host       string   `mapstructure:"host"`
+		Port       int      `mapstructure:"port"`
+		Protocol   string   `mapstructure:"protocol"`
+		AllowedIPs []string `mapstructure:"allowed_ips"`
 	} `mapstructure:"syslog"`
 	Redis struct {
 		Address  string `mapstructure:"address"`
@@ -64,6 +65,7 @@ func LoadConfig() (Config, error) {
 	viper.SetDefault("web.allowed_ips", []string{})
 	viper.SetDefault("syslog.port", 514)
 	viper.SetDefault("syslog.host", "0.0.0.0")
+	viper.SetDefault("syslog.allowed_ips", []string{})
 	viper.SetDefault("redis.address", "127.0.0.1:6379")
 	viper.SetDefault("api.bearer_token", "") // Default empty bearer token
 	viper.SetDefault("external_api.enabled", false)
