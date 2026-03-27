@@ -132,14 +132,6 @@ func isAllowedSyslogSender(logParts map[string]interface{}, allowed *allowlist.I
 }
 
 func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig config.Config, tag string) {
-	// Generate a random key for the new entry
-	randomBytes := make([]byte, 16)
-	if _, err := rand.Read(randomBytes); err != nil {
-		log.Printf("Failed to generate random key for THREAT log: %v", err)
-		return
-	}
-	key := alarmPrefix + hex.EncodeToString(randomBytes)
-
 	// Define the field names in order
 	fields := []string{
 		"Score", "DetectTime", "DetectType", "DetectSubType", "FileName",
@@ -149,6 +141,19 @@ func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig
 	// Split the message by the backtick delimiter
 	message = strings.Trim(message, "`")
 	values := strings.Split(message, "`")
+
+	if err := validateThreatMessage(values, len(fields)); err != nil {
+		log.Printf("Dropped invalid THREAT message for tag %s: %v", tag, err)
+		return
+	}
+
+	// Generate a random key for the new entry
+	randomBytes := make([]byte, 16)
+	if _, err := rand.Read(randomBytes); err != nil {
+		log.Printf("Failed to generate random key for THREAT log: %v", err)
+		return
+	}
+	key := alarmPrefix + hex.EncodeToString(randomBytes)
 
 	// Create a map to hold the structured data
 	jsonData := make(map[string]interface{})
@@ -204,6 +209,34 @@ func parseThreatMessageAndSave(rdb *redis.RedisClient, message string, appConfig
 			go notifier.CallExternalAPI(appConfig, map[string]string{"key": key, "message": jsonString, "status": tag})
 		}
 	}
+}
+
+func validateThreatMessage(values []string, expectedFieldCount int) error {
+	if len(values) != expectedFieldCount {
+		return fmt.Errorf("expected %d fields, got %d", expectedFieldCount, len(values))
+	}
+
+	hasMeaningfulValue := false
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" && !strings.EqualFold(trimmed, "NULL") {
+			hasMeaningfulValue = true
+			break
+		}
+	}
+	if !hasMeaningfulValue {
+		return fmt.Errorf("all fields are empty or NULL")
+	}
+
+	detectTime := strings.TrimSpace(values[1])
+	if detectTime == "" || strings.EqualFold(detectTime, "NULL") {
+		return fmt.Errorf("DetectTime is empty or NULL")
+	}
+	if _, err := strconv.ParseInt(detectTime, 10, 64); err != nil {
+		return fmt.Errorf("DetectTime is not a valid unix timestamp: %w", err)
+	}
+
+	return nil
 }
 
 func saveWithRandomKey(rdb *redis.RedisClient, message string, tag string) {
