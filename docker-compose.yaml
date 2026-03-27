@@ -8,10 +8,26 @@ services:
     image: logvault:latest
     container_name: logvault-app
     restart: always
-    network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
+    pids_limit: 256
+    mem_limit: 512m
     # Depends on Redis being available
     depends_on:
       - redis
+    environment:
+      # Point the app at the Redis service on the Compose bridge network.
+      REDIS_ADDRESS: redis:6379
+    ports:
+      - "${LOGVAULT_WEB_HOST_PORT:-6443}:8080"
+      - "${LOGVAULT_SYSLOG_HOST_PORT:-2514}:514/udp"
     volumes:
       # Mount the configuration file from the host into the container
       # This allows you to change config without rebuilding the image.
@@ -27,9 +43,10 @@ services:
     image: redis:7-alpine
     container_name: logvault-redis
     restart: always
-    ports:
-      # Publish Redis only on the host loopback interface so the host-networked app can reach it
-      - "127.0.0.1:6379:6379"
+    tmpfs:
+      - /tmp
+    pids_limit: 256
+    mem_limit: 512m
     volumes:
       # This named volume persists Redis data across container restarts.
       - redis-data:/data

@@ -13,13 +13,27 @@ CA_KEY="${CA_DIR}/myCA.key"
 TLS_CERT="${TARGET_DIR}/server.crt"
 TLS_KEY="${TARGET_DIR}/server.key"
 CONFIG_FILE="${TARGET_DIR}/config.yaml"
+COMPOSE_ENV_FILE="${TARGET_DIR}/.env"
+COMPOSE_ENV_EXAMPLE="${TARGET_DIR}/.env.example"
 HASH_TOOL="${TARGET_DIR}/bin/generate-password-hash"
 ADMIN_HASH_PLACEHOLDER="__ADMIN_SECRET_HASH__"
 OPS_HASH_PLACEHOLDER="__OPS_SECRET_HASH__"
 API_TOKEN_PLACEHOLDER="__API_BEARER_TOKEN__"
+EXTERNAL_API_ENABLED_PLACEHOLDER="__EXTERNAL_API_ENABLED__"
+EXTERNAL_API_URL_PLACEHOLDER="__EXTERNAL_API_URL__"
+EXTERNAL_API_METHOD_PLACEHOLDER="__EXTERNAL_API_METHOD__"
+EXTERNAL_API_BEARER_TOKEN_PLACEHOLDER="__EXTERNAL_API_BEARER_TOKEN__"
+EXTERNAL_API_TRIGGER_TAGS_PLACEHOLDER="__EXTERNAL_API_TRIGGER_TAGS__"
 TLS_CERT_CN="${TLS_CERT_CN:-Genian Logvault Server}"
 TLS_CERT_O="${TLS_CERT_O:-Genians}"
 TLS_CERT_IP="${TLS_CERT_IP:-}"
+LOGVAULT_WEB_HOST_PORT="${LOGVAULT_WEB_HOST_PORT:-}"
+LOGVAULT_SYSLOG_HOST_PORT="${LOGVAULT_SYSLOG_HOST_PORT:-}"
+LOGVAULT_EXTERNAL_API_ENABLED="${LOGVAULT_EXTERNAL_API_ENABLED:-}"
+LOGVAULT_EXTERNAL_API_URL="${LOGVAULT_EXTERNAL_API_URL:-}"
+LOGVAULT_EXTERNAL_API_METHOD="${LOGVAULT_EXTERNAL_API_METHOD:-}"
+LOGVAULT_EXTERNAL_API_BEARER_TOKEN="${LOGVAULT_EXTERNAL_API_BEARER_TOKEN:-}"
+LOGVAULT_EXTERNAL_API_TRIGGER_TAGS="${LOGVAULT_EXTERNAL_API_TRIGGER_TAGS:-}"
 
 require_openssl() {
   if ! command -v openssl >/dev/null 2>&1; then
@@ -69,16 +83,36 @@ prompt_value() {
 
   if [[ -n "$default_value" ]]; then
     read -rp "${prompt} [${default_value}]: " value < /dev/tty
-    echo >&2
     if [[ -z "$value" ]]; then
       value="$default_value"
     fi
   else
     read -rp "${prompt}: " value < /dev/tty
-    echo >&2
   fi
 
   printf '%s' "$value"
+}
+
+prompt_yes_no() {
+  local prompt="$1"
+  local default_value="${2:-no}"
+  local value=""
+
+  while true; do
+    value="$(prompt_value "$prompt" "$default_value")"
+    value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+    case "$value" in
+      y|yes)
+        printf 'true'
+        return 0
+        ;;
+      n|no)
+        printf 'false'
+        return 0
+        ;;
+    esac
+    echo "Enter yes or no." >&2
+  done
 }
 
 is_ipv4_address() {
@@ -95,6 +129,20 @@ is_ipv4_address() {
       return 1
     fi
   done
+
+  return 0
+}
+
+is_valid_port() {
+  local port="$1"
+
+  if [[ ! "$port" =~ ^[0-9]+$ ]]; then
+    return 1
+  fi
+
+  if ((port < 1 || port > 65535)); then
+    return 1
+  fi
 
   return 0
 }
@@ -142,21 +190,102 @@ resolve_tls_cert_ip() {
   exit 1
 }
 
+set_env_var() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+
+  if grep -qE "^${key}=" "$file"; then
+    sed -i "s|^${key}=.*$|${key}=${value}|" "$file"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
+
+ensure_compose_ports() {
+  local web_port="${LOGVAULT_WEB_HOST_PORT:-}"
+  local syslog_port="${LOGVAULT_SYSLOG_HOST_PORT:-}"
+  local current_web_port=""
+  local current_syslog_port=""
+
+  if [[ ! -f "$COMPOSE_ENV_FILE" && -f "$COMPOSE_ENV_EXAMPLE" ]]; then
+    cp "$COMPOSE_ENV_EXAMPLE" "$COMPOSE_ENV_FILE"
+    echo "Created $COMPOSE_ENV_FILE from .env.example"
+  fi
+
+  if [[ ! -f "$COMPOSE_ENV_FILE" ]]; then
+    : > "$COMPOSE_ENV_FILE"
+  fi
+
+  if [[ -z "$web_port" ]] && grep -qE '^LOGVAULT_WEB_HOST_PORT=' "$COMPOSE_ENV_FILE"; then
+    web_port="$(grep -E '^LOGVAULT_WEB_HOST_PORT=' "$COMPOSE_ENV_FILE" | tail -n1 | cut -d= -f2-)"
+  fi
+  if [[ -z "$syslog_port" ]] && grep -qE '^LOGVAULT_SYSLOG_HOST_PORT=' "$COMPOSE_ENV_FILE"; then
+    syslog_port="$(grep -E '^LOGVAULT_SYSLOG_HOST_PORT=' "$COMPOSE_ENV_FILE" | tail -n1 | cut -d= -f2-)"
+  fi
+
+  current_web_port="${web_port:-6443}"
+  current_syslog_port="${syslog_port:-2514}"
+
+  if [[ -t 0 ]]; then
+    while true; do
+      web_port="$(prompt_value "Enter host port for the Web UI" "$current_web_port")"
+      if is_valid_port "$web_port"; then
+        break
+      fi
+      echo "Invalid Web UI port. Enter a value between 1 and 65535." >&2
+      current_web_port="6443"
+    done
+
+    while true; do
+      syslog_port="$(prompt_value "Enter host UDP port for syslog" "$current_syslog_port")"
+      if is_valid_port "$syslog_port"; then
+        break
+      fi
+      echo "Invalid syslog port. Enter a value between 1 and 65535." >&2
+      current_syslog_port="2514"
+    done
+  fi
+
+  if ! is_valid_port "$web_port"; then
+    echo "Error: LOGVAULT_WEB_HOST_PORT must be set to a port between 1 and 65535." >&2
+    exit 1
+  fi
+  if ! is_valid_port "$syslog_port"; then
+    echo "Error: LOGVAULT_SYSLOG_HOST_PORT must be set to a port between 1 and 65535." >&2
+    exit 1
+  fi
+
+  set_env_var "$COMPOSE_ENV_FILE" "LOGVAULT_WEB_HOST_PORT" "$web_port"
+  set_env_var "$COMPOSE_ENV_FILE" "LOGVAULT_SYSLOG_HOST_PORT" "$syslog_port"
+  echo "Configured host ports in $COMPOSE_ENV_FILE"
+}
+
 ensure_initial_secrets() {
   local admin_password="${LOGVAULT_ADMIN_PASSWORD:-}"
   local ops_password="${LOGVAULT_OPS_PASSWORD:-}"
   local bearer_token="${LOGVAULT_API_BEARER_TOKEN:-}"
+  local external_api_enabled="${LOGVAULT_EXTERNAL_API_ENABLED:-}"
+  local external_api_url="${LOGVAULT_EXTERNAL_API_URL:-}"
+  local external_api_method="${LOGVAULT_EXTERNAL_API_METHOD:-}"
+  local external_api_bearer_token="${LOGVAULT_EXTERNAL_API_BEARER_TOKEN:-}"
+  local external_api_trigger_tags="${LOGVAULT_EXTERNAL_API_TRIGGER_TAGS:-}"
   local admin_hash=""
   local ops_hash=""
   local admin_hash_escaped=""
   local ops_hash_escaped=""
   local bearer_token_escaped=""
+  local external_api_enabled_escaped=""
+  local external_api_url_escaped=""
+  local external_api_method_escaped=""
+  local external_api_bearer_token_escaped=""
+  local external_api_trigger_tags_escaped=""
 
   if [[ ! -f "$CONFIG_FILE" ]]; then
     return 0
   fi
 
-  if ! grep -qE "${ADMIN_HASH_PLACEHOLDER}|${OPS_HASH_PLACEHOLDER}|${API_TOKEN_PLACEHOLDER}" "$CONFIG_FILE"; then
+  if ! grep -qE "${ADMIN_HASH_PLACEHOLDER}|${OPS_HASH_PLACEHOLDER}|${API_TOKEN_PLACEHOLDER}|${EXTERNAL_API_ENABLED_PLACEHOLDER}|${EXTERNAL_API_URL_PLACEHOLDER}|${EXTERNAL_API_METHOD_PLACEHOLDER}|${EXTERNAL_API_BEARER_TOKEN_PLACEHOLDER}|${EXTERNAL_API_TRIGGER_TAGS_PLACEHOLDER}" "$CONFIG_FILE"; then
     return 0
   fi
 
@@ -185,21 +314,100 @@ ensure_initial_secrets() {
     bearer_token="$(openssl rand -hex 32)"
   fi
 
+  if [[ -z "$external_api_enabled" ]]; then
+    if [[ -t 0 ]]; then
+      external_api_enabled="$(prompt_yes_no "Enable external API integration" "no")"
+    else
+      external_api_enabled="false"
+    fi
+  else
+    external_api_enabled="$(printf '%s' "$external_api_enabled" | tr '[:upper:]' '[:lower:]')"
+    case "$external_api_enabled" in
+      1|true|yes|y|on)
+        external_api_enabled="true"
+        ;;
+      0|false|no|n|off)
+        external_api_enabled="false"
+        ;;
+      *)
+        echo "Error: LOGVAULT_EXTERNAL_API_ENABLED must be true/false." >&2
+        exit 1
+        ;;
+    esac
+  fi
+
+  if [[ "$external_api_enabled" == "true" ]]; then
+    if [[ -z "$external_api_url" ]]; then
+      if [[ -t 0 ]]; then
+        while true; do
+          external_api_url="$(prompt_value "Enter external API URL" "http://example.com/api/event")"
+          if [[ -n "$external_api_url" ]]; then
+            break
+          fi
+          echo "External API URL cannot be empty when integration is enabled." >&2
+        done
+      else
+        echo "Error: LOGVAULT_EXTERNAL_API_URL is required for non-interactive installation when external API integration is enabled." >&2
+        exit 1
+      fi
+    fi
+
+    if [[ -z "$external_api_method" ]]; then
+      if [[ -t 0 ]]; then
+        external_api_method="$(prompt_value "Enter external API method" "POST")"
+      else
+        external_api_method="POST"
+      fi
+    fi
+
+    if [[ -z "$external_api_bearer_token" && -t 0 ]]; then
+      external_api_bearer_token="$(prompt_value "Enter external API bearer token (optional)")"
+    fi
+
+    if [[ -z "$external_api_trigger_tags" ]]; then
+      if [[ -t 0 ]]; then
+        external_api_trigger_tags="$(prompt_value "Enter trigger tags for external API" "INSIGHTS")"
+      else
+        external_api_trigger_tags="INSIGHTS"
+      fi
+    fi
+  else
+    external_api_url="${external_api_url:-http://example.com/api/event}"
+    external_api_method="${external_api_method:-POST}"
+    external_api_bearer_token="${external_api_bearer_token:-}"
+    external_api_trigger_tags="${external_api_trigger_tags:-INSIGHTS}"
+  fi
+
   admin_hash="$("$HASH_TOOL" --password "$admin_password")"
   ops_hash="$("$HASH_TOOL" --password "$ops_password")"
 
   admin_hash_escaped="$(escape_sed_replacement "$admin_hash")"
   ops_hash_escaped="$(escape_sed_replacement "$ops_hash")"
   bearer_token_escaped="$(escape_sed_replacement "$bearer_token")"
+  external_api_enabled_escaped="$(escape_sed_replacement "$external_api_enabled")"
+  external_api_url_escaped="$(escape_sed_replacement "$external_api_url")"
+  external_api_method_escaped="$(escape_sed_replacement "$external_api_method")"
+  external_api_bearer_token_escaped="$(escape_sed_replacement "$external_api_bearer_token")"
+  external_api_trigger_tags_escaped="$(escape_sed_replacement "$external_api_trigger_tags")"
 
   sed -i \
     -e "s/${ADMIN_HASH_PLACEHOLDER}/${admin_hash_escaped}/g" \
     -e "s/${OPS_HASH_PLACEHOLDER}/${ops_hash_escaped}/g" \
     -e "s/${API_TOKEN_PLACEHOLDER}/${bearer_token_escaped}/g" \
+    -e "s/${EXTERNAL_API_ENABLED_PLACEHOLDER}/${external_api_enabled_escaped}/g" \
+    -e "s/${EXTERNAL_API_URL_PLACEHOLDER}/${external_api_url_escaped}/g" \
+    -e "s/${EXTERNAL_API_METHOD_PLACEHOLDER}/${external_api_method_escaped}/g" \
+    -e "s/${EXTERNAL_API_BEARER_TOKEN_PLACEHOLDER}/${external_api_bearer_token_escaped}/g" \
+    -e "s/${EXTERNAL_API_TRIGGER_TAGS_PLACEHOLDER}/${external_api_trigger_tags_escaped}/g" \
     "$CONFIG_FILE"
 
   echo "Initialized admin and ops passwords in $CONFIG_FILE"
   echo "Generated API bearer token: $bearer_token"
+  if [[ "$external_api_enabled" == "true" ]]; then
+    echo "Configured external API integration: ${external_api_method} ${external_api_url}"
+  else
+    echo "External API integration remains disabled."
+  fi
 }
 
 generate_tls_certificates() {
@@ -313,6 +521,7 @@ if [[ ! -f "$CONFIG_FILE" && -f "$TARGET_DIR/config.yaml.example" ]]; then
   echo "Created $CONFIG_FILE from config.yaml.example"
 fi
 
+ensure_compose_ports
 ensure_initial_secrets
 generate_tls_certificates
 

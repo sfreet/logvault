@@ -68,6 +68,7 @@ package: docker-build build-hash-tool build-config-tool ## Create the offline de
 	@docker save -o logvault_package/redis.tar redis:7-alpine
 	@echo "--> Copying configuration and scripts..."
 	@cp docker-compose.yaml compose.sh logvault_package/
+	@cp .env.example logvault_package/.env.example
 	@cp config.yaml.example logvault_package/config.yaml.example
 	@cp scripts/generate_password_hash.sh logvault_package/scripts/
 	@cp scripts/configure_web_user.sh logvault_package/scripts/

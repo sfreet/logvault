@@ -40,8 +40,8 @@ api:
 
 # External API integration settings
 external_api:
-  enabled: false
-  url: "http://example.com/api/event"
-  method: "POST"
-  bearer_token: "" # Optional: Bearer token for external API authentication
-  trigger_tags: "ALARM,CRITICAL" # Comma-separated list of syslog tags that trigger the external API call
+  enabled: __EXTERNAL_API_ENABLED__
+  url: "__EXTERNAL_API_URL__"
+  method: "__EXTERNAL_API_METHOD__"
+  bearer_token: "__EXTERNAL_API_BEARER_TOKEN__" # Optional: Bearer token for external API authentication
+  trigger_tags: "__EXTERNAL_API_TRIGGER_TAGS__" # Comma-separated list of syslog tags that trigger the external API call. Install defaults to INSIGHTS.

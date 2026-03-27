@@ -201,7 +201,9 @@ By default, the installer deploys to `$HOME/opt/logvault`. You can override that
 
 If `config.yaml` does not already exist on the target system, the installer creates it from `config.yaml.example`.
 
-On first install, if the generated `config.yaml` still contains the default placeholders, the installer prompts for initial passwords for the `admin` and `ops` accounts, writes bcrypt hashes into `config.yaml`, and generates an API bearer token automatically. For non-interactive installs, you can provide `LOGVAULT_ADMIN_PASSWORD`, `LOGVAULT_OPS_PASSWORD`, and optionally `LOGVAULT_API_BEARER_TOKEN`.
+The installer also creates `.env` from `.env.example` and prompts for the host ports used by Docker Compose. By default it suggests Web UI port `6443` and syslog UDP port `2514`, and writes those values to `.env` without requiring direct edits to `docker-compose.yaml`.
+
+On first install, if the generated `config.yaml` still contains the default placeholders, the installer prompts for initial passwords for the `admin` and `ops` accounts, writes bcrypt hashes into `config.yaml`, generates an API bearer token automatically, and can initialize the `external_api` block without requiring manual YAML edits. For non-interactive installs, you can provide `LOGVAULT_ADMIN_PASSWORD`, `LOGVAULT_OPS_PASSWORD`, `LOGVAULT_EXTERNAL_API_ENABLED`, and optionally `LOGVAULT_API_BEARER_TOKEN`, `LOGVAULT_EXTERNAL_API_URL`, `LOGVAULT_EXTERNAL_API_METHOD`, `LOGVAULT_EXTERNAL_API_BEARER_TOKEN`, and `LOGVAULT_EXTERNAL_API_TRIGGER_TAGS`.
 
 The installer also generates a TLS certificate for the Web UI. During installation it asks for the IPv4 address to place in the certificate SAN, or you can supply it non-interactively with `TLS_CERT_IP`.
 
