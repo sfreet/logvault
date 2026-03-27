@@ -106,17 +106,31 @@ Logvault can be run in a Docker container or built from source.
 
 You can use the standard `logger` utility to send syslog messages to Logvault.
 
+If you are using the provided Docker Compose setup, send test syslog traffic to host UDP port `2514`, which is published to the container's internal syslog port `514/udp`.
+
 -   **To create an alarm:**
     Use the `-t ALARM` tag. The message format should be `"<key> <message>"`. The `<key>` is typically an IP address or hostname.
     ```sh
-    logger -n 127.0.0.1 -P 514 -t ALARM "192.168.1.100 System is overheating"
+    logger -n 127.0.0.1 -P 2514 -d -t ALARM "192.168.1.100 System is overheating"
     ```
 
 -   **To clear an alarm:**
     Use the `-t CLEAR` tag. The message should contain the `<key>` of the alarm to be cleared.
     ```sh
-    logger -n 127.0.0.1 -P 514 -t CLEAR "192.168.1.100"
+    logger -n 127.0.0.1 -P 2514 -d -t CLEAR "192.168.1.100"
     ```
+
+-   **To send an INSIGHTS event:**
+    Use the `-t INSIGHTS` tag. The payload must contain exactly 10 backtick-delimited fields in this order: `Score`, `DetectTime`, `DetectType`, `DetectSubType`, `FileName`, `RuleName`, `IP`, `AuthID`, `AuthName`, `AuthDeptName`. `DetectTime` must be a Unix timestamp in milliseconds.
+    ```sh
+    logger -n 127.0.0.1 -P 2514 -d -t INSIGHTS '90`1706236200000`Malware`VirusX`/usr/local/bin/mal.exe`Blocked_VirusX_Signature`192.168.1.100`admin`Administrator`IT_Security'
+    ```
+
+After sending a test event, you can verify the stored data through the API:
+
+```sh
+curl -k -H "Authorization: Bearer <YOUR_BEARER_TOKEN>" https://127.0.0.1:8080/api/alarms
+```
 
 ### Accessing the Web UI
 
