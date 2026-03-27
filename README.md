@@ -56,7 +56,8 @@ Logvault can be run in a Docker container or built from source.
         docker-compose up --build
         ```
         The application will be available at `http://localhost:8080`.
-        In the default Compose setup, the Logvault app uses host networking so it can see the real client source IP, while Redis is published only on `127.0.0.1:6379`.
+        In the default Compose setup, Logvault and Redis communicate over the default Docker bridge network. The Logvault container publishes `8080/tcp` for the Web UI and `514/udp` for syslog reception, and it reaches Redis through the service name `redis:6379`.
+        In `config.yaml.example`, the Redis address is therefore set to `redis:6379` for the Compose case. If you run Logvault outside Docker, change that value to the appropriate Redis host such as `127.0.0.1:6379`.
 
 2.  **Building and Running Docker Image Manually**
 
@@ -71,8 +72,9 @@ Logvault can be run in a Docker container or built from source.
 
     3.  **Run the Docker container:**
         ```sh
-        docker run -d --name logvault -p 8080:8080 -p 514:514/udp --network host logvault
-        # Make sure Redis is running and accessible from the container
+        docker network create logvault-net
+        docker run -d --name logvault-redis --network logvault-net redis:7-alpine
+        docker run -d --name logvault --network logvault-net -e REDIS_ADDRESS=logvault-redis:6379 -p 8080:8080 -p 514:514/udp logvault
         ```
 
 3.  **Building from Source**
@@ -175,11 +177,19 @@ For on-prem installation, unpack the distribution bundle and run:
 
 ```bash
 tar -xzf logvault-dist.tar.gz
-cd logvault
+cd logvault-dist
 ./install-logvault.sh logvault.tar.gz
 ```
 
+After installation, review `config.yaml` and, if you need different published ports, adjust `docker-compose.yaml` before loading images and starting the stack. In rootless Docker environments, avoid host ports below `1024`.
+
+By default, the installer deploys to `$HOME/opt/logvault`. You can override that by setting `BASE_DIR` or `APP_DIR_NAME` before running the script.
+
 If `config.yaml` does not already exist on the target system, the installer creates it from `config.yaml.example`.
+
+On first install, if the generated `config.yaml` still contains the default placeholders, the installer prompts for initial passwords for the `admin` and `ops` accounts, writes bcrypt hashes into `config.yaml`, and generates an API bearer token automatically. For non-interactive installs, you can provide `LOGVAULT_ADMIN_PASSWORD`, `LOGVAULT_OPS_PASSWORD`, and optionally `LOGVAULT_API_BEARER_TOKEN`.
+
+The installer also generates a TLS certificate for the Web UI. During installation it asks for the IPv4 address to place in the certificate SAN, or you can supply it non-interactively with `TLS_CERT_IP`.
 
 You can also add or update a Web UI user directly in `config.yaml`:
 
@@ -190,7 +200,7 @@ make build-config-tool
 
 This helper rewrites `config.yaml`, updates or appends the matching `web.users` entry, stores only `secret_hash`, and clears plaintext `secret` for that user.
 
-In the provided Docker Compose configuration, this allowlist is evaluated against the real client source IP because the web app runs with `network_mode: host`. Redis remains bound to `127.0.0.1:6379` on the host so it is not exposed externally.
+In the provided Docker Compose configuration, the containers use the default Docker bridge network. Because the Web UI runs behind Docker port publishing in this setup, `web.allowed_ips` may see the Docker bridge or host-side source address rather than the original browser client IP. If you need a strict public-client IP allowlist for the Web UI, add a reverse proxy that forwards the real client IP and update the application to trust that proxy, or run outside Docker networking.
 
 ### REST API
 

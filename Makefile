@@ -12,7 +12,8 @@ BINARY_NAME=logvault
 HASH_TOOL_BINARY=bin/generate-password-hash
 CONFIG_TOOL_BINARY=bin/configure-web-user
 DIST_DIR=dist
-DIST_WORKDIR=$(DIST_DIR)/logvault
+DIST_BUNDLE_NAME=logvault-dist
+DIST_WORKDIR=$(DIST_DIR)/$(DIST_BUNDLE_NAME)
 
 .PHONY: all build build-hash-tool build-config-tool run clean test help docker docker-build package
 
@@ -51,6 +52,7 @@ clean:
 	rm -f $(CONFIG_TOOL_BINARY)
 	rm -f logvault.tar.gz ## Remove the offline package tarball
 	rm -f logvault-dist.tar.gz
+	rm -rf logvault-dist
 	rm -rf $(DIST_DIR)
 
 # Run tests (not yet implemented)
@@ -65,7 +67,7 @@ package: docker-build build-hash-tool build-config-tool ## Create the offline de
 	@docker save -o logvault_package/logvault.tar logvault:latest
 	@docker save -o logvault_package/redis.tar redis:7-alpine
 	@echo "--> Copying configuration and scripts..."
-	@cp docker-compose.yaml docker-compose.sh server.crt server.key logvault_package/
+	@cp docker-compose.yaml compose.sh logvault_package/
 	@cp config.yaml.example logvault_package/config.yaml.example
 	@cp scripts/generate_password_hash.sh logvault_package/scripts/
 	@cp scripts/configure_web_user.sh logvault_package/scripts/
@@ -77,7 +79,7 @@ package: docker-build build-hash-tool build-config-tool ## Create the offline de
 	@echo 'docker load -i redis.tar' >> logvault_package/load_images.sh
 	@echo 'echo "Images loaded."' >> logvault_package/load_images.sh
 	@chmod +x logvault_package/load_images.sh logvault_package/scripts/generate_password_hash.sh logvault_package/scripts/configure_web_user.sh
-	@echo 'Offline Package for Logvault\n\nThis directory is the extracted offline package.\n\nInstructions:\n1. If '\''config.yaml'\'' does not exist, create it from the example:\n   cp config.yaml.example config.yaml\n2. Review and edit '\''config.yaml'\'' to match your environment.\n3. Optional: generate bcrypt password hashes with ./scripts/generate_password_hash.sh --password '\''your_secret'\''\n4. Optional: add or update a web user with ./scripts/configure_web_user.sh --config ./config.yaml --username admin --password '\''your_secret'\'' --role admin\n5. Load the Docker images: ./load_images.sh\n6. Start the services: ./docker-compose.sh start\n\nUseful commands:\n- Stop the services: ./docker-compose.sh stop\n- Restart the services: ./docker-compose.sh restart\n- Reconfigure a web user: ./scripts/configure_web_user.sh --config ./config.yaml --username admin --password '\''your_secret'\'' --role admin' > logvault_package/README_OFFLINE.txt
+	@echo 'Offline Package for Logvault\n\nThis directory is the extracted offline package.\n\nInstructions:\n1. If '\''config.yaml'\'' does not exist, create it from the example:\n   cp config.yaml.example config.yaml\n2. Review and edit '\''config.yaml'\'' to match your environment.\n3. Optional: if you need different host ports, edit '\''docker-compose.yaml'\'' before starting.\n4. In rootless Docker environments, avoid host ports below 1024.\n5. Optional: generate bcrypt password hashes with ./scripts/generate_password_hash.sh --password '\''your_secret'\''\n6. Optional: add or update a web user with ./scripts/configure_web_user.sh --config ./config.yaml --username admin --password '\''your_secret'\'' --role admin\n7. Load the Docker images: ./load_images.sh\n8. Start the services: ./compose.sh start\n\nUseful commands:\n- Stop the services: ./compose.sh stop\n- Restart the services: ./compose.sh restart\n- Reconfigure a web user: ./scripts/configure_web_user.sh --config ./config.yaml --username admin --password '\''your_secret'\'' --role admin' > logvault_package/README_OFFLINE.txt
 	@echo "--> Creating tarball..."
 	@tar -czvf logvault.tar.gz logvault_package
 	@echo "--> Creating distribution bundle..."
@@ -86,7 +88,7 @@ package: docker-build build-hash-tool build-config-tool ## Create the offline de
 	@cp logvault.tar.gz $(DIST_WORKDIR)/
 	@cp install-logvault.sh $(DIST_WORKDIR)/
 	@chmod +x $(DIST_WORKDIR)/install-logvault.sh
-	@tar -czvf logvault-dist.tar.gz -C $(DIST_DIR) logvault
+	@tar -czvf logvault-dist.tar.gz -C $(DIST_DIR) $(DIST_BUNDLE_NAME)
 	@echo "--> Cleaning up..."
 	@rm -rf logvault_package
 	@echo " "
